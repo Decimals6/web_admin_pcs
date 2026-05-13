@@ -1,0 +1,23 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Customer extends Model
+{
+    protected $fillable = [
+        'kode_customer',
+        'nama_customer',
+        'email',
+        'telepon',
+        'alamat'
+    ];
+
+    public function invoices()
+{
+    return $this->hasMany(Invoice::class);
+}
+
+}
+
