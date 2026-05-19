@@ -130,7 +130,7 @@
 
                 // AJAX Request (Pastikan route ini sudah ada di web.php)
                 // Saya sesuaikan dengan route fetch di script lama kamu: /po/{id}
-                $.get('/po/' + id, function (data) {
+                $.get('/so/' + id, function (data) {
                     $('#detailContent').html(data);
                 }).fail(function () {
                     $('#detailContent').html('<div class="alert alert-danger">Gagal mengambil data. Pastikan Route sudah benar.</div>');

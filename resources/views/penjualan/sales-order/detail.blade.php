@@ -1,11 +1,11 @@
 
 <h5 class="modal-title">
-    Detail PO - {{ $po->no }}
+    Detail SO - {{ $po->no }}
 </h5>
 <div class="mb-3">
     <table class="table table-sm table-borderless">
         <tr>
-            <th width="150">No. PO</th>
+            <th width="150">No. SO</th>
             <td>{{ $po->no }}</td>
         </tr>
         <tr>

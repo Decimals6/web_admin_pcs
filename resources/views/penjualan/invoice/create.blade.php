@@ -24,10 +24,18 @@
                 <div class="row mb-2">
                     <div class="col-md-2">
                         <label>No. Invoice</label>
-                        <input type="text" name="no" class="form-control"
-                            value="{{ generateDocumentNumber('invoices', 'PCS-INV', 'out') }}" readonly
-                            style="background-color: #e9ecef;">
+                        <div class="input-group">
+                            <input type="text" name="no" id="no_invoice" class="form-control"
+                                value="{{ generateDocumentNumber('invoices', 'PCS-INV', 'out') }}" readonly
+                                style="background-color: #e9ecef;">
+
+                            <button class="btn btn-outline-secondary" type="button" id="btn-toggle-invoice"
+                                title="Edit Nomor Invoice">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                        </div>
                     </div>
+
 
                     <div class="col-md-2">
                         <label>Tanggal Invoice</label>
@@ -248,11 +256,11 @@
                 dnDiv.className = 'd-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-white';
 
                 dnDiv.innerHTML = `
-                    <span>${dnText}</span>
-                    <button type="button" class="btn btn-sm btn-danger remove-dn" data-id="${dnId}">
-                        Hapus
-                    </button>
-                `;
+                                    <span>${dnText}</span>
+                                    <button type="button" class="btn btn-sm btn-danger remove-dn" data-id="${dnId}">
+                                        Hapus
+                                    </button>
+                                `;
 
                 selectedDnBox.appendChild(dnDiv);
 
@@ -274,33 +282,33 @@
                             let row = document.createElement('tr');
 
                             row.innerHTML = `
-                            <td>
-                                ${item.nama_barang}
-                                <input type="hidden" name="details[${rowIndex}][barang_id]" value="${item.barang_id}">
-                                <input type="hidden" name="details[${rowIndex}][order_detail_id]" value="${item.order_detail_id}">
-                            </td>
+                                            <td>
+                                                ${item.nama_barang}
+                                                <input type="hidden" name="details[${rowIndex}][barang_id]" value="${item.barang_id}">
+                                                <input type="hidden" name="details[${rowIndex}][order_detail_id]" value="${item.order_detail_id}">
+                                            </td>
 
-                            <td>
-                                <input type="number" name="details[${rowIndex}][qty]"
-                                class="form-control qty" value="${item.qty}" readonly>
-                            </td>
+                                            <td>
+                                                <input type="number" name="details[${rowIndex}][qty]"
+                                                class="form-control qty" value="${item.qty}" readonly>
+                                            </td>
 
-                            <td>
-                                <input type="number" name="details[${rowIndex}][harga]"
-                                class="form-control harga" value="${item.harga}"
-                                readonly style="background-color:#e9ecef;">
-                            </td>
+                                            <td>
+                                                <input type="number" name="details[${rowIndex}][harga]"
+                                                class="form-control harga" value="${item.harga}"
+                                                readonly style="background-color:#e9ecef;">
+                                            </td>
 
-                            <td>
-                                <input type="number" name="details[${rowIndex}][subtotal]"
-                                class="form-control subtotal-detail" readonly
-                                style="background-color:#e9ecef;">
-                            </td>
+                                            <td>
+                                                <input type="number" name="details[${rowIndex}][subtotal]"
+                                                class="form-control subtotal-detail" readonly
+                                                style="background-color:#e9ecef;">
+                                            </td>
 
-                            <td>
-                                <button type="button" class="btn btn-danger btn-sm remove-row">-</button>
-                            </td>
-                        `;
+                                            <td>
+                                                <button type="button" class="btn btn-danger btn-sm remove-row">-</button>
+                                            </td>
+                                        `;
 
                             itemsTable.appendChild(row);
 
@@ -356,31 +364,31 @@
                             let row = document.createElement('tr');
 
                             row.innerHTML = `
-                            <td>
-                                ${item.nama_barang}
-                                <input type="hidden" name="details[${rowIndex}][barang_id]" value="${item.barang_id}">
-                                <input type="hidden" name="details[${rowIndex}][order_detail_id]" value="${item.order_detail_id}">
-                            </td>
+                                            <td>
+                                                ${item.nama_barang}
+                                                <input type="hidden" name="details[${rowIndex}][barang_id]" value="${item.barang_id}">
+                                                <input type="hidden" name="details[${rowIndex}][order_detail_id]" value="${item.order_detail_id}">
+                                            </td>
 
-                            <td>
-                                <input type="number" name="details[${rowIndex}][qty]"
-                                class="form-control qty" value="${item.qty}" readonly>
-                            </td>
+                                            <td>
+                                                <input type="number" name="details[${rowIndex}][qty]"
+                                                class="form-control qty" value="${item.qty}" readonly>
+                                            </td>
 
-                            <td>
-                                <input type="number" name="details[${rowIndex}][harga]"
-                                class="form-control harga" value="${item.harga}" readonly>
-                            </td>
+                                            <td>
+                                                <input type="number" name="details[${rowIndex}][harga]"
+                                                class="form-control harga" value="${item.harga}" readonly>
+                                            </td>
 
-                            <td>
-                                <input type="number" name="details[${rowIndex}][subtotal]"
-                                class="form-control subtotal-detail" readonly>
-                            </td>
+                                            <td>
+                                                <input type="number" name="details[${rowIndex}][subtotal]"
+                                                class="form-control subtotal-detail" readonly>
+                                            </td>
 
-                            <td>
-                                <button type="button" class="btn btn-danger btn-sm remove-row">-</button>
-                            </td>
-                        `;
+                                            <td>
+                                                <button type="button" class="btn btn-danger btn-sm remove-row">-</button>
+                                            </td>
+                                        `;
 
                             itemsTable.appendChild(row);
 
@@ -420,6 +428,51 @@
 
                 });
 
+            }
+
+            const inputSO = document.getElementById("no_so");
+            const btnToggleSO = document.getElementById("btn-toggle-so");
+
+            if (inputSO && btnToggleSO) {
+                btnToggleSO.addEventListener("click", function () {
+                    if (inputSO.hasAttribute("readonly")) {
+                        inputSO.removeAttribute("readonly");
+                        inputSO.style.backgroundColor = "#fff";
+                        btnToggleSO.classList.remove("btn-outline-secondary");
+                        btnToggleSO.classList.add("btn-danger");
+                        btnToggleSO.innerHTML = '<i class="fas fa-lock"></i>';
+                        inputSO.focus();
+                    } else {
+                        inputSO.setAttribute("readonly", true);
+                        inputSO.style.backgroundColor = "#e9ecef";
+                        btnToggleSO.classList.remove("btn-danger");
+                        btnToggleSO.classList.add("btn-outline-secondary");
+                        btnToggleSO.innerHTML = '<i class="fas fa-pencil-alt"></i>';
+                    }
+                });
+            }
+
+            // === Logic untuk No. Invoice ===
+            const inputInvoice = document.getElementById("no_invoice");
+            const btnToggleInvoice = document.getElementById("btn-toggle-invoice");
+
+            if (inputInvoice && btnToggleInvoice) {
+                btnToggleInvoice.addEventListener("click", function () {
+                    if (inputInvoice.hasAttribute("readonly")) {
+                        inputInvoice.removeAttribute("readonly");
+                        inputInvoice.style.backgroundColor = "#fff";
+                        btnToggleInvoice.classList.remove("btn-outline-secondary");
+                        btnToggleInvoice.classList.add("btn-danger");
+                        btnToggleInvoice.innerHTML = '<i class="fas fa-lock"></i>';
+                        inputInvoice.focus();
+                    } else {
+                        inputInvoice.setAttribute("readonly", true);
+                        inputInvoice.style.backgroundColor = "#e9ecef";
+                        btnToggleInvoice.classList.remove("btn-danger");
+                        btnToggleInvoice.classList.add("btn-outline-secondary");
+                        btnToggleInvoice.innerHTML = '<i class="fas fa-pencil-alt"></i>';
+                    }
+                });
             }
 
         });

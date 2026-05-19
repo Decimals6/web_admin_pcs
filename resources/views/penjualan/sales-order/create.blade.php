@@ -10,20 +10,28 @@
             @csrf
 
             @if ($errors->any())
-    <div style="color:red;">
-        @foreach ($errors->all() as $error)
-            <p>{{ $error }}</p>
-        @endforeach
-    </div>
-@endif
+                <div style="color:red;">
+                    @foreach ($errors->all() as $error)
+                        <p>{{ $error }}</p>
+                    @endforeach
+                </div>
+            @endif
             <div class="card-body">
 
                 <div class="row mb-2">
                     <div class="col-md-3">
                         <label>No. SO</label>
-                        <input type="text" name="no" class="form-control"
-                            value="{{ generateDocumentNumber('orders', 'PCS-SO', 'sales') }}" readonly
-                            style="background-color: #e9ecef;">
+                        <div class="input-group">
+                            <input type="text" name="no" id="no_so" class="form-control"
+                                value="{{ generateDocumentNumber('orders', 'PCS-SO', 'sales') }}" readonly
+                                style="background-color: #e9ecef;">
+
+                            <button class="btn btn-outline-secondary" type="button" id="btn-toggle-so"
+                                title="Edit Nomor SO">
+                                <i class="fas fa-pencil-alt"></i>
+                                <!-- Menggunakan FontAwesome, atau ganti dengan icon pilihanmu -->
+                            </button>
+                        </div>
                     </div>
 
                     <div class="col-md-2">
@@ -226,6 +234,33 @@
                     hargaInput.removeAttribute('readonly');
                     hargaInput.style.backgroundColor = "#fff";
                     hargaInput.focus();
+                }
+            });
+
+            const inputSO = document.getElementById("no_so");
+            const btnToggle = document.getElementById("btn-toggle-so");
+
+            btnToggle.addEventListener("click", function () {
+                // Cek apakah saat ini masih readonly
+                if (inputSO.hasAttribute("readonly")) {
+                    // Lepas readonly
+                    inputSO.removeAttribute("readonly");
+                    // Ubah background agar terlihat bisa di-edit
+                    inputSO.style.backgroundColor = "#fff";
+                    // Ubah warna/style tombol pensil sebagai penanda sedang aktif (opsional)
+                    btnToggle.classList.remove("btn-outline-secondary");
+                    btnToggle.classList.add("btn-danger");
+                    btnToggle.innerHTML = '<i class="fas fa-lock"></i>'; // Ganti ikon jadi gembok jika ingin mengunci kembali
+
+                    // Otomatis arahkan kursor ke inputan
+                    inputSO.focus();
+                } else {
+                    // Jika diklik lagi, kunci kembali
+                    inputSO.setAttribute("readonly", true);
+                    inputSO.style.backgroundColor = "#e9ecef";
+                    btnToggle.classList.remove("btn-danger");
+                    btnToggle.classList.add("btn-outline-secondary");
+                    btnToggle.innerHTML = '<i class="fas fa-pencil-alt"></i>';
                 }
             });
         });
