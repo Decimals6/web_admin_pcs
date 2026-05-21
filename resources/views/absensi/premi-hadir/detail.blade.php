@@ -1,7 +1,7 @@
-<a href="{{ route('premiHadir.print', $absensi->id) }}" target="_blank" class="btn btn-primary">
+<a href="{{ route('absensi.premi.print', $absensi->id) }}" target="_blank" class="btn btn-primary">
     Print premi
 </a>
-<a href="{{ route('sewa.print', $absensi->id) }}" target="_blank" class="btn btn-primary">
+<a href="{{ route('absensi.sewa.print', $absensi->id) }}" target="_blank" class="btn btn-primary">
     Print Sewa
 </a>
 <h5>
