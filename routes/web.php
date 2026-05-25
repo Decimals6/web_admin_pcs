@@ -301,6 +301,8 @@ Route::prefix('petty_cash')->name('petty_cash.')->group(function () {
     Route::get('kas', [KasController::class, 'index'])->name('kas.index');
     Route::get('kas/create', [KasController::class, 'create'])->name('kas.create');
     Route::post('kas', [KasController::class, 'store'])->name('kas.store');
+    Route::get('kas/{id}/edit', [KasController::class, 'edit'])->name('kas.edit');
+    Route::put('kas/{id}', [KasController::class, 'update'])->name('kas.update');
     // Route::get('/', [KasController::class, 'index'])->name('index');
 
     // Route::post('/store', [KasController::class, 'store'])->name('store');

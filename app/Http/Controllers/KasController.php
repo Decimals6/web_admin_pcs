@@ -55,6 +55,79 @@ class KasController extends Controller
         return redirect()->route('petty_cash.kas.index');
     }
 
+    public function edit($id)
+    {
+        $kas = Kas::findOrFail($id);
+        return view('petty_cash.kas.edit', compact('kas'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'tanggal' => 'required|date',
+            'keterangan' => 'required|string',
+            'jenis' => 'required|in:petty_cash,operasional',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $kas = Kas::findOrFail($id);
+
+            // Catat tanggal awal dan jenis awal sebelum diganti (untuk jaga-jaga kalau tanggal/jenis diubah)
+            $tanggalLama = $kas->tanggal;
+            $jenisLama = $kas->jenis;
+
+            $kas->update([
+                'tanggal' => $request->tanggal,
+                'no_transaksi' => $request->no_transaksi,
+                'keterangan' => $request->keterangan,
+                'debit' => $request->debit ?? 0,
+                'kredit' => $request->kredit ?? 0,
+                'jenis' => $request->jenis,
+            ]);
+
+            // 1. Hitung ulang jalur kas lama (biar saldo di bawah tanggal lama kembali normal)
+            $this->recalculateKasFrom($tanggalLama, $jenisLama);
+
+            // 2. Jika user mengubah jenis kas atau tanggal, hitung juga jalur kas yang baru
+            if ($tanggalLama != $request->tanggal || $jenisLama != $request->jenis) {
+                $this->recalculateKasFrom($request->tanggal, $request->jenis);
+            }
+
+            DB::commit();
+            return redirect()->route('petty_cash.kas.index')->with('success', 'Transaksi berhasil diperbarui!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage())->withInput();
+        }
+    }
+
+    // FUNGSI SAKTI PENYELAMAT SALDO BERANTAI
+    private function recalculateKasFrom($tanggalAwal, $jenisKas)
+    {
+        // 1. Ambil saldo aman terakhir sebelum tanggal yang diubah (berdasarkan jenis kas)
+        $transaksiSebelumnya = Kas::where('jenis', $jenisKas)
+            ->where('tanggal', '<', $tanggalAwal)
+            ->orderBy('tanggal', 'desc')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        $saldoBerjalan = $transaksiSebelumnya ? $transaksiSebelumnya->saldo : 0;
+
+        // 2. Ambil semua data transaksi ke depan yang perlu diperbaiki urutan saldonya
+        $transaksiAkanDiupdate = Kas::where('jenis', $jenisKas)
+            ->where('tanggal', '>=', $tanggalAwal)
+            ->orderBy('tanggal', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        // 3. Gulung ulang saldo berantai ke bawah
+        foreach ($transaksiAkanDiupdate as $row) {
+            $saldoBerjalan = $saldoBerjalan + $row->debit - $row->kredit;
+            $row->update(['saldo' => $saldoBerjalan]);
+        }
+    }
+
     public function indexVoucher()
     {
         $data = Voucher::orderBy('tgl_akhir')->orderBy('id')->get();
@@ -122,7 +195,7 @@ class KasController extends Controller
         $voucher = Voucher::with('kas')->findOrFail($id);
 
         $pdf = Pdf::loadView('petty_cash.voucher.print', compact('voucher'));
-        $filename = str_replace(['/', '\\'], '-',$voucher->no) . '.pdf';
+        $filename = str_replace(['/', '\\'], '-', $voucher->no) . '.pdf';
 
         return $pdf->stream($filename);
     }
