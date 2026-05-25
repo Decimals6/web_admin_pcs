@@ -183,6 +183,32 @@ class KasController extends Controller
             return redirect()->back()->with('error', 'Gagal: ' . $e->getMessage());
         }
     }
+
+    public function deleteVoucher($id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $voucher = Voucher::findOrFail($id);
+
+            // 1. LEPAS GEMBOK: Balikin voucher_id di tabel kas menjadi null
+            \App\Models\Kas::where('voucher_id', $voucher->id)->update([
+                'voucher_id' => null
+            ]);
+
+            // 2. BABAT HABIS: Hapus data voucher utama
+            $voucher->delete();
+
+            DB::commit();
+
+            return redirect()->route('petty_cash.voucher.index')
+                ->with('success', 'Voucher berhasil dihapus dan transaksi kas telah dilepas gembok.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Gagal menghapus voucher: ' . $e->getMessage());
+        }
+    }
     public function detailVoucher($id)
     {
         $voucher = Voucher::with('kas')->findOrFail($id);

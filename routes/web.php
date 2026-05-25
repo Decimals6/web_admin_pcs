@@ -75,13 +75,13 @@ Route::prefix('pembelian/purchase-order')
         Route::get('/', [OrdersController::class, 'indexPO'])->name('index');
         Route::get('/create', [OrdersController::class, 'createPO'])->name('create');
         Route::post('/store', [OrdersController::class, 'storePO'])->name('store');
-        
+
         // TAMBAHIN /{id} DI SINI, Do!
         Route::get('/{id}/edit', [OrdersController::class, 'editPO'])->name('edit');
-        
+
         // Pakai PUT/PATCH untuk update data lama, sertakan juga /{id}
         Route::put('/{id}/update', [OrdersController::class, 'updatePO'])->name('update');
-        
+
         // Jalur untuk nampilin detail via AJAX (opsional, sesuaikan nama fungsi di controller)
         Route::get('/{id}/detail', [OrdersController::class, 'showPODetail'])->name('detail');
     });
@@ -194,7 +194,7 @@ Route::prefix('penjualan/invoice')
         Route::get('/', [InvoiceController::class, 'indexKeluar'])->name('index');
         Route::get('/create', [InvoiceController::class, 'createKeluar'])->name('create');
         Route::post('/', [InvoiceController::class, 'storeKeluar'])->name('store');
-        
+
         // TAMBAHIN DUA JALUR INI UNTUK UPDATE DATA KELUAR
         Route::get('/{id}/edit', [InvoiceController::class, 'editKeluar'])->name('edit');
         Route::put('/{id}', [InvoiceController::class, 'updateKeluar'])->name('update');
@@ -312,7 +312,7 @@ Route::prefix('petty_cash')->name('petty_cash.')->group(function () {
         ->name('voucher.detail');
     Route::get('voucher/create', [KasController::class, 'createVoucher'])->name('voucher.create');
     Route::post('voucher', [KasController::class, 'storeVoucher'])->name('voucher.store');
-
+    Route::delete('voucher/{id}', [KasController::class, 'deleteVoucher'])->name('voucher.destroy');
     Route::get('voucher/{id}/print', [KasController::class, 'printVoucher'])
         ->name('voucher.print');
 });

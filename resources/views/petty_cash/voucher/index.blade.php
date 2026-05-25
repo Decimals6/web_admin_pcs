@@ -23,16 +23,27 @@
                 @forelse($data as $row)
                     <tr>
                         <td>{{ $row->no }}</td>
-                        <td>{{ $row->tgl_mulai }}</td>
-                        <td>{{ $row->tgl_akhir }}</td>
+                        <td>{{ \Carbon\Carbon::parse($row->tgl_mulai)->format('d-m-Y') }}</td>
+                        <td>{{ \Carbon\Carbon::parse($row->tgl_akhir)->format('d-m-Y') }}</td>
 
                         <td class="text-end fw-bold">
-                            {{ $row->total ?? 0 }}
+                            {{ number_format($row->total) }}
                         </td>
                         <td>
-                            <button class="btn btn-sm btn-info btn-detail" data-id="{{ $row->id }}">
-                                Detail
-                            </button>
+                            <div class="d-flex">
+                                <button class="btn btn-sm btn-info btn-detail mr-2" data-id="{{ $row->id }}">
+                                    Detail
+                                </button>
+
+                                <form action="{{ route('petty_cash.voucher.destroy', $row->id) }}" method="POST"
+                                    onsubmit="return confirm('Apakah Anda yakin ingin menghapus voucher ini? Transaksi kas di dalamnya akan dilepas kembali.')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        Hapus
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 @empty
