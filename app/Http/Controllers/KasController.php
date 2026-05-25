@@ -103,27 +103,27 @@ class KasController extends Controller
     }
 
     // FUNGSI SAKTI PENYELAMAT SALDO BERANTAI
-    private function recalculateKasFrom($tanggalAwal, $jenisKas)
+    private function recalculateKasFrom($idTransaksiSekarang, $jenisKas)
     {
-        // 1. Ambil saldo aman terakhir sebelum tanggal yang diubah (berdasarkan jenis kas)
+        // 1. Ambil saldo aman terakhir TEPAT 1 baris sebelum ID yang dipilih/diinput (berdasarkan jenis kas)
         $transaksiSebelumnya = Kas::where('jenis', $jenisKas)
-            ->where('tanggal', '<', $tanggalAwal)
-            ->orderBy('tanggal', 'desc')
-            ->orderBy('id', 'desc')
+            ->where('id', '<', $idTransaksiSekarang)
+            ->orderBy('id', 'desc') // Ambil ID terbesar yang di bawah ID sekarang
             ->first();
 
         $saldoBerjalan = $transaksiSebelumnya ? $transaksiSebelumnya->saldo : 0;
 
-        // 2. Ambil semua data transaksi ke depan yang perlu diperbaiki urutan saldonya
+        // 2. Ambil semua data dari ID yang dipilih sampai ID yang paling baru/terbesar
         $transaksiAkanDiupdate = Kas::where('jenis', $jenisKas)
-            ->where('tanggal', '>=', $tanggalAwal)
-            ->orderBy('tanggal', 'asc')
-            ->orderBy('id', 'asc')
+            ->where('id', '>=', $idTransaksiSekarang)
+            ->orderBy('id', 'asc') // Urutin dari ID terkecil ke terbesar biar gulungnya berurutan
             ->get();
 
-        // 3. Gulung ulang saldo berantai ke bawah
+        // 3. Gulung ulang saldo berantai ke bawah murni berdasarkan urutan ID
         foreach ($transaksiAkanDiupdate as $row) {
             $saldoBerjalan = $saldoBerjalan + $row->debit - $row->kredit;
+
+            // Update saldo baris ini ke database
             $row->update(['saldo' => $saldoBerjalan]);
         }
     }
