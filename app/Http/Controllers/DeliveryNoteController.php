@@ -228,25 +228,16 @@ class DeliveryNoteController extends Controller
 
     public function edit(DeliveryNote $deliveryNote)
     {
-        if ($deliveryNote->type == 'masuk') {
-            $orders = Orders::where('type', 'purchase')
-                ->where('status', '!=', 'draft')
-                ->with('details.barang', 'supplier')
-                ->get();
+        // Mengambil semua order aktif untuk dropdown PO
+        $orders = Orders::where('type', 'purchase')
+            ->where('status', '!=', 'draft')
+            ->with('details.barang', 'supplier')
+            ->get();
 
-            $deliveryNote->load('details.orderDetail.barang');
+        // Load relasi detail barang yang ada di dalam Surat Jalan ini beserta barangnya
+        $deliveryNote->load('details.orderDetail.barang');
 
-            return view('pembelian.delivery_note.edit', compact('deliveryNote', 'orders'));
-        } else {
-            $orders = Orders::where('type', 'sales')
-                ->where('status', '!=', 'draft')
-                ->with('details.barang', 'customer')
-                ->get();
-
-            $deliveryNote->load('details.orderDetail.barang');
-
-            return view('penjualan.delivery_note.edit', compact('deliveryNote', 'orders'));
-        }
+        return view('pembelian.delivery_note.edit', compact('deliveryNote', 'orders'));
     }
 
     // ===========================
@@ -271,50 +262,78 @@ class DeliveryNoteController extends Controller
     public function update(Request $request, DeliveryNote $deliveryNote)
     {
         $request->validate([
+            'no' => 'required|unique:delivery_notes,no,' . $deliveryNote->id, // Abaikan pengecekan unik untuk ID sendiri
             'tgl' => 'required|date',
+            'alamat_kirim' => 'required',
+            'order_id' => 'nullable|exists:orders,id',
             'details.*.order_detail_id' => 'required|exists:order_details,id',
+            'details.*.qty' => 'required|integer|min:1',
+            'details.*.keterangan' => 'nullable|string'
         ]);
 
-        // Rollback stok lama
-        foreach ($deliveryNote->details as $d) {
-            $barang = $d->orderDetail->barang;
-            if ($deliveryNote->type == 'masuk') {
-                $barang->stok -= $d->orderDetail->qty;
-            } else {
-                $barang->stok += $d->orderDetail->qty;
-            }
+        // === STEP 1: KEMBALIKAN/RESET STOK DAN MUTASI LAMA ===
+        foreach ($deliveryNote->details as $oldDetail) {
+            $orderDetail = $oldDetail->orderDetail;
+
+            // Kurangi qty_sent lama
+            $orderDetail->qty_sent -= $oldDetail->qty;
+            $orderDetail->save();
+
+            // Kembalikan stok barang lama (karena ini tipe 'masuk', kita kurangi lagi stoknya)
+            $barang = $orderDetail->barang;
+            $barang->stok -= $oldDetail->qty;
             $barang->save();
         }
 
-        // Update DN
+        // Hapus mutasi barang lama dan baris detail lama yang terikat dengan DN ini
+        MutasiBarang::where('tgl_mutasi', $deliveryNote->tgl)
+            ->whereIn('barang_id', $deliveryNote->details->pluck('orderDetail.barang_id'))
+            ->delete();
+
+        $deliveryNote->details()->delete();
+
+        // === STEP 2: UPDATE DATA INDUK DELIVERY NOTE ===
         $deliveryNote->update([
+            'no' => $request->no,
             'tgl' => $request->tgl,
+            'order_id' => $request->order_id,
             'keterangan' => $request->keterangan,
             'alamat_kirim' => $request->alamat_kirim
         ]);
 
-        // Hapus detail lama
-        $deliveryNote->details()->delete();
-
-        // Tambah detail baru & update stok
+        // === STEP 3: MASUKKAN DATA BARU (Sama persis logikanya dengan STORE) ===
         foreach ($request->details as $item) {
-            $detail = DeliveryNoteDetail::create([
+            $orderDetail = OrderDetail::findOrFail($item['order_detail_id']);
+
+            // Buat detail baru
+            DeliveryNoteDetail::create([
                 'delivery_note_id' => $deliveryNote->id,
                 'order_detail_id' => $item['order_detail_id'],
+                'qty' => $item['qty'],
                 'keterangan' => $item['keterangan'] ?? null
             ]);
 
-            $barang = $detail->orderDetail->barang;
-            if ($deliveryNote->type == 'masuk') {
-                $barang->stok += $detail->orderDetail->qty;
-            } else {
-                $barang->stok -= $detail->orderDetail->qty;
-            }
+            // Catat mutasi baru
+            MutasiBarang::create([
+                'tgl_mutasi' => $deliveryNote->tgl,
+                'barang_id' => $orderDetail->barang_id,
+                'qty' => $item['qty'],
+                'tipe' => 'IN', // Fokus pembelian (masuk)
+                'keterangan' => 'Update Surat Jalan ' . $deliveryNote->no
+            ]);
+
+            // Update qty_sent baru
+            $orderDetail->qty_sent += $item['qty'];
+            $orderDetail->save();
+
+            // Update stok barang baru
+            $barang = $orderDetail->barang;
+            $barang->stok += $item['qty'];
             $barang->save();
         }
 
-        $route = $deliveryNote->type == 'masuk' ? 'pembelian.delivery-note.index' : 'penjualan.delivery-note.index';
-        return redirect()->route($route)->with('success', 'Delivery Note berhasil diupdate.');
+        return redirect()->route('pembelian.delivery-note.index')
+            ->with('success', 'Delivery Note berhasil diperbarui.');
     }
 
     // ===========================

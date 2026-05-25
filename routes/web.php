@@ -75,6 +75,15 @@ Route::prefix('pembelian/purchase-order')
         Route::get('/', [OrdersController::class, 'indexPO'])->name('index');
         Route::get('/create', [OrdersController::class, 'createPO'])->name('create');
         Route::post('/store', [OrdersController::class, 'storePO'])->name('store');
+        
+        // TAMBAHIN /{id} DI SINI, Do!
+        Route::get('/{id}/edit', [OrdersController::class, 'editPO'])->name('edit');
+        
+        // Pakai PUT/PATCH untuk update data lama, sertakan juga /{id}
+        Route::put('/{id}/update', [OrdersController::class, 'updatePO'])->name('update');
+        
+        // Jalur untuk nampilin detail via AJAX (opsional, sesuaikan nama fungsi di controller)
+        Route::get('/{id}/detail', [OrdersController::class, 'showPODetail'])->name('detail');
     });
 
 Route::get(
@@ -97,6 +106,8 @@ Route::prefix('penjualan/sales-order')
         Route::get('/', [OrdersController::class, 'indexSO'])->name('index');
         Route::get('/create', [OrdersController::class, 'createSO'])->name('create');
         Route::post('/store', [OrdersController::class, 'storeSO'])->name('store');
+        Route::get('/{id}/edit', [OrdersController::class, 'editSO'])->name('edit');
+        Route::put('/{id}/update', [OrdersController::class, 'updateSO'])->name('update');
     });
 
 Route::get(
@@ -166,6 +177,8 @@ Route::prefix('pembelian/invoice')
         Route::get('/', [InvoiceController::class, 'indexMasuk'])->name('index');
         Route::get('/create', [InvoiceController::class, 'createMasuk'])->name('create');
         Route::post('/', [InvoiceController::class, 'storeMasuk'])->name('store');
+        Route::get('/{id}/edit', [InvoiceController::class, 'editMasuk'])->name('edit');
+        Route::put('/{id}', [InvoiceController::class, 'updateMasuk'])->name('update');
     });
 
 Route::get('/invPurchase/{id}/detail', [InvoiceController::class, 'detailPurchase']);
@@ -181,6 +194,10 @@ Route::prefix('penjualan/invoice')
         Route::get('/', [InvoiceController::class, 'indexKeluar'])->name('index');
         Route::get('/create', [InvoiceController::class, 'createKeluar'])->name('create');
         Route::post('/', [InvoiceController::class, 'storeKeluar'])->name('store');
+        
+        // TAMBAHIN DUA JALUR INI UNTUK UPDATE DATA KELUAR
+        Route::get('/{id}/edit', [InvoiceController::class, 'editKeluar'])->name('edit');
+        Route::put('/{id}', [InvoiceController::class, 'updateKeluar'])->name('update');
     });
 
 Route::get('/invSales/{id}/detail', [InvoiceController::class, 'detailSales']);

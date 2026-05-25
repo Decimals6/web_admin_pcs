@@ -4,11 +4,11 @@
     <div class="card">
         <div class="card-header bg-dark text-white align-items-center">
             <div class="d-flex justify-content-between">
-            <h4>Purchase Orders</h4>
-            <a href="{{ route('pembelian.purchase-order.create') }}" class="btn btn-success btn-sm">
-                + Buat PO
-            </a>
-        </div>
+                <h4>Purchase Orders</h4>
+                <a href="{{ route('pembelian.purchase-order.create') }}" class="btn btn-success btn-sm">
+                    + Buat PO
+                </a>
+            </div>
         </div>
 
         <div class="card-body">
@@ -47,10 +47,16 @@
                                 <td class="text-end">{{ number_format($po->dpp, 0, ',', '.') }}</td>
                                 <td>{{ $po->keterangan ?? '-' }}</td>
                                 <td>
-                                    {{-- Tombol Detail - Tanpa Collapse, Pakai Class btn-detail --}}
+                                    {{-- Tombol Detail - Menggunakan data-id untuk di-grab oleh JavaScript/AJAX Modal --}}
                                     <button class="btn btn-sm btn-primary btn-detail" data-id="{{ $po->id }}">
                                         Detail
                                     </button>
+
+                                    {{-- Tombol Edit - Langsung lempar ke halaman edit membawa ID PO nya --}}
+                                    <a href="{{ route('pembelian.purchase-order.edit', $po->id) }}"
+                                        class="btn btn-sm btn-warning">
+                                        Edit
+                                    </a>
                                 </td>
                             </tr>
                         @empty
@@ -106,11 +112,11 @@
 
                 // Tampilkan loading saat proses fetch
                 $('#detailContent').html(`
-                    <div class="text-center">
-                        <div class="spinner-border text-primary" role="status"></div>
-                        <p class="mt-2">Loading...</p>
-                    </div>
-                `);
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <p class="mt-2">Loading...</p>
+                        </div>
+                    `);
                 modal.show();
 
                 // AJAX Request (Pastikan route ini sudah ada di web.php)

@@ -72,6 +72,10 @@
                                 <button class="btn btn-info btn-sm btn-detail" data-id="{{ $invoice->id }}">
                                     Detail
                                 </button>
+
+                                <a href="{{ route('pembelian.invoice.edit', $invoice->id) }}" class="btn btn-warning btn-sm">
+                                    Edit
+                                </a>
                             </td>
                         </tr>
                     @empty

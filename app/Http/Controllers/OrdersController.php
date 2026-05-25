@@ -114,6 +114,90 @@ class OrdersController extends Controller
         }
     }
 
+    public function editPO($id)
+    {
+        // Ambil data PO utama (tabel orders) beserta relasi details-nya
+        $order = Orders::with('details')->findOrFail($id);
+
+        $suppliers = Supplier::all();
+        $barangs = Barang::all();
+        $deliveryNotes = DeliveryNote::where('type', 'masuk')->get();
+
+        // parsing TOP dan Tgl Kirim dari string keterangan (jika diperlukan untuk form)
+        // Tapi di blade nanti kita pasang langsung dari value yang dikirim aja
+        return view('pembelian.purchase-order.edit', compact('order', 'suppliers', 'barangs', 'deliveryNotes'));
+    }
+
+    public function updatePO(Request $request, $id)
+    {
+        $request->validate([
+            'tgl' => 'required|date',
+            'supplier_id' => 'required|exists:suppliers,id',
+            'barang_id.*' => 'required|exists:barangs,id',
+            'qty.*' => 'required|numeric|min:0.01',
+            'harga.*' => 'required|numeric|min:0',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $order = Orders::findOrFail($id);
+
+            // 1. Hitung ulang subtotal baru berdasarkan inputan terupdate
+            $subtotals = [];
+            foreach ($request->barang_id as $i => $barangId) {
+                $subtotals[$i] = $request->qty[$i] * $request->harga[$i];
+            }
+
+            $dpp = array_sum($subtotals);
+
+            // Cek apakah pakai PPN atau tidak berdasarkan input toggle PPN
+            $pajak = 0;
+            if ($request->use_ppn == 1) {
+                $pajak = $dpp * 0.11;
+            }
+            $total = $dpp + $pajak;
+
+            // 2. Update data PO utama
+            $order->update([
+                'no' => $request->no,
+                'tgl' => $request->tgl,
+                'supplier_id' => $request->supplier_id,
+                'pajak' => $pajak,
+                'dpp' => $dpp,
+                'total' => $total,
+                // Status dibiarin sesuai data lama atau default, keterangan diupdate formatnya
+                'keterangan' => 'TOP: ' . $request->top . ' | Tgl Kirim: ' . $request->tgl_kirim . ' | ' . $request->keterangan,
+            ]);
+
+            // 3. STRATEGI UTAMA: BABAT HABIS DETAIL LAMA DI DATABASE
+            \App\Models\OrderDetail::where('order_id', $order->id)->delete();
+
+            // 4. INSERT ULANG SEMUA DETAIL BARU YANG ADA DI LAYAR SCREEN SEKARANG
+            foreach ($request->barang_id as $i => $barangId) {
+                \App\Models\OrderDetail::create([
+                    'order_id' => $order->id,
+                    'barang_id' => $barangId,
+                    'harga' => $request->harga[$i],
+                    'qty' => $request->qty[$i],
+                    'hpp' => null,
+                    'subtotal' => $subtotals[$i],
+                    'keterangan' => null,
+                    'qty_sent' => 0, // sesuaikan jika ada tracking quantity terkirim sebelumnya
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('pembelian.purchase-order.index')
+                ->with('success', 'Purchase Order berhasil diperbarui!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
+
     public function detail($id)
     {
         $po = Orders::with('details.barang')->findOrFail($id);
@@ -220,13 +304,88 @@ class OrdersController extends Controller
                     'qty_sent' => 0,
                 ]);
 
-                
+
             }
 
             DB::commit();
 
             return redirect()->route('penjualan.sales-order.index')
                 ->with('success', 'Sales Order berhasil dibuat dan stok diperbarui');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
+
+    public function editSO($id)
+    {
+        // Ambil data SO utama beserta relasi detail barangnya
+        $order = Orders::with('details.barang')->findOrFail($id);
+
+        $customer = Customer::all();
+        $barangs = Barang::all();
+
+        return view('penjualan.sales-order.edit', compact('order', 'customer', 'barangs'));
+    }
+
+    public function updateSO(Request $request, $id)
+    {
+        $request->validate([
+            'tgl' => 'required|date',
+            'customer_id' => 'required|exists:customers,id',
+            'barang_id.*' => 'required|exists:barangs,id',
+            'qty.*' => 'required|numeric|min:1', // Validasi angka minimal 1
+            'harga.*' => 'required|numeric|min:0',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $order = Orders::findOrFail($id);
+
+            // 1. Hitung ulang subtotal berdasarkan input form edit
+            $subtotals = [];
+            foreach ($request->barang_id as $i => $barangId) {
+                $subtotals[$i] = $request->qty[$i] * $request->harga[$i];
+            }
+
+            $dpp = array_sum($subtotals);
+            $pajak = $dpp * 0.11; // PPN 11%
+            $total = $dpp + $pajak;
+
+            // 2. Update data master Sales Order
+            $order->update([
+                'no' => $request->no,
+                'tgl' => $request->tgl,
+                'customer_id' => $request->customer_id,
+                'pajak' => $pajak,
+                'dpp' => $dpp,
+                'total' => $total,
+                'keterangan' => 'TOP: ' . $request->top . ' | Tgl Kirim: ' . $request->tgl_kirim . ' | ' . $request->keterangan,
+            ]);
+
+            // 3. JURUS BARBAR: HAPUS SEMUA DETAIL LAMA
+            \App\Models\OrderDetail::where('order_id', $order->id)->delete();
+
+            // 4. INSERT ULANG DETAIL BARU SESUAI SCREEN SEKARANG
+            foreach ($request->barang_id as $i => $barangId) {
+                \App\Models\OrderDetail::create([
+                    'order_id' => $order->id,
+                    'barang_id' => $barangId,
+                    'harga' => $request->harga[$i],
+                    'qty' => $request->qty[$i],
+                    'hpp' => null,
+                    'subtotal' => $subtotals[$i],
+                    'keterangan' => null,
+                    'qty_sent' => 0,
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('penjualan.sales-order.index')
+                ->with('success', 'Sales Order berhasil diperbarui!');
 
         } catch (\Exception $e) {
             DB::rollBack();

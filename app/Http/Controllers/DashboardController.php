@@ -19,7 +19,11 @@ class DashboardController extends Controller
             ->sum(DB::raw('grand_total - paid'));
 
         $totalHutang = Invoice::where('type', 'in')
-            ->sum(DB::raw('grand_total - paid'));
+            ->with('paymentDetails')
+            ->get()
+            ->sum(function ($inv) {
+                return $inv->grand_total - $inv->paymentDetails->sum('subtotal');
+            });
 
         $saldoKas = Kas::latest('id')->value('saldo') ?? 0;
 

@@ -21,5 +21,37 @@ class DatabaseSeeder extends Seeder
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+        $this->call(AbsensiTableSeeder::class);
+        $this->call(AbsensiUserTableSeeder::class);
+        $this->call(BanksTableSeeder::class);
+        $this->call(BarangHargasTableSeeder::class);
+        $this->call(BarangsTableSeeder::class);
+        $this->call(CacheTableSeeder::class);
+        $this->call(CacheLocksTableSeeder::class);
+        $this->call(CustomersTableSeeder::class);
+        $this->call(DeliveryNoteDetailsTableSeeder::class);
+        $this->call(DeliveryNotesTableSeeder::class);
+        $this->call(FailedJobsTableSeeder::class);
+        $this->call(IncomingBarangsTableSeeder::class);
+        $this->call(InvoiceDeliveryNotesTableSeeder::class);
+        $this->call(InvoiceDetailsTableSeeder::class);
+        $this->call(InvoiceOngkirsTableSeeder::class);
+        $this->call(InvoicesTableSeeder::class);
+        $this->call(JobBatchesTableSeeder::class);
+        $this->call(JobsTableSeeder::class);
+        $this->call(KasTableSeeder::class);
+        $this->call(MigrationsTableSeeder::class);
+        $this->call(MutasiBarangsTableSeeder::class);
+        $this->call(OrderDetailsTableSeeder::class);
+        $this->call(OrdersTableSeeder::class);
+        $this->call(PaymentDetailsTableSeeder::class);
+        $this->call(PaymentsTableSeeder::class);
+        $this->call(PremiHadirTableSeeder::class);
+        $this->call(PremiUserTableSeeder::class);
+        $this->call(SessionsTableSeeder::class);
+        $this->call(SewaKendaraanTableSeeder::class);
+        $this->call(SuppliersTableSeeder::class);
+        $this->call(UsersTableSeeder::class);
+        $this->call(VouchersTableSeeder::class);
     }
 }

@@ -116,5 +116,5 @@ class Invoice extends Model
         return $this->grand_total + $this->total_ongkir;
     }
 
-    
+
 }

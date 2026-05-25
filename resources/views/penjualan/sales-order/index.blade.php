@@ -55,13 +55,18 @@
                                 <td>{{ $so->keterangan ?? '-' }}</td>
 
                                 <td>
-                                    {{-- Tombol Detail - Tanpa Collapse, Pakai Class btn-detail --}}
+                                    {{-- Tombol Detail Bawaan --}}
                                     <button class="btn btn-sm btn-primary btn-detail" data-id="{{ $so->id }}">
                                         Detail
                                     </button>
+
+                                    {{-- Tambahan Tombol Edit --}}
+                                    <a href="{{ route('penjualan.sales-order.edit', $so->id) }}" class="btn btn-sm btn-warning">
+                                        Edit
+                                    </a>
                                 </td>
                             </tr>
-                            
+
                         @empty
                             <tr>
                                 <td colspan="7" class="text-center">
@@ -121,11 +126,11 @@
 
                 // Tampilkan loading saat proses fetch
                 $('#detailContent').html(`
-                            <div class="text-center">
-                                <div class="spinner-border text-primary" role="status"></div>
-                                <p class="mt-2">Loading...</p>
-                            </div>
-                        `);
+                                <div class="text-center">
+                                    <div class="spinner-border text-primary" role="status"></div>
+                                    <p class="mt-2">Loading...</p>
+                                </div>
+                            `);
                 modal.show();
 
                 // AJAX Request (Pastikan route ini sudah ada di web.php)

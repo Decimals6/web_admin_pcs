@@ -486,7 +486,7 @@ class InvoiceController extends Controller
 
         return response()->json($data);
     }
-    
+
     public function bayarHutang(Request $request)
     {
         $request->validate([
@@ -494,13 +494,13 @@ class InvoiceController extends Controller
             'jumlah_bayar' => 'required|numeric|min:1',
             'metode' => 'required'
         ]);
-    
+
         DB::beginTransaction();
-    
+
         try {
             $supplierId = $request->supplier_id;
             $sisaUang = (float) $request->jumlah_bayar; // Pakai float biar presisi pas hitung sisa
-    
+
             // 1. Ambil invoice yang belum lunas
             $invoices = Invoice::with(['paymentDetails', 'ongkirs'])
                 ->where('supplier_id', $supplierId)
@@ -508,7 +508,7 @@ class InvoiceController extends Controller
                 ->where('status', '!=', 'paid')
                 ->orderBy('tgl', 'asc')
                 ->get();
-    
+
             // 2. Hitung total sisa hutang real (termasuk ongkir)
             $totalSisaHutang = 0;
             foreach ($invoices as $inv) {
@@ -516,13 +516,13 @@ class InvoiceController extends Controller
                 $totalTagihan = $inv->grand_total + $inv->ongkirs->sum('nominal');
                 $totalSisaHutang += ($totalTagihan - $paid);
             }
-    
+
             // VALIDASI: Beri toleransi 1 rupiah/unit untuk selisih pembulatan
             // Hanya throw error kalau beneran kelebihan bayar lebih dari 1
             if (($sisaUang - $totalSisaHutang) > 1) {
                 throw new \Exception('Jumlah bayar melebihi total hutang.');
             }
-    
+
             // 3. Buat header payment
             $payment = Payment::create([
                 'total' => $request->jumlah_bayar,
@@ -530,28 +530,30 @@ class InvoiceController extends Controller
                 'type' => 'out',
                 'supplier_id' => $supplierId,
             ]);
-    
+
             // 4. ====== FIFO LOGIC WITH TOLERANCE ======
             foreach ($invoices as $invoice) {
-                if ($sisaUang <= 0) break;
-    
+                if ($sisaUang <= 0)
+                    break;
+
                 $sudahDibayar = $invoice->paymentDetails->sum('subtotal');
                 $totalTagihan = $invoice->grand_total + $invoice->ongkirs->sum('nominal');
                 $kurang = $totalTagihan - $sudahDibayar;
-    
-                if ($kurang <= 0) continue;
-    
+
+                if ($kurang <= 0)
+                    continue;
+
                 // Tentukan berapa yang dibayarkan ke invoice ini
                 $bayar = min($sisaUang, $kurang);
-    
+
                 PaymentDetail::create([
                     'payment_id' => $payment->id,
                     'invoice_id' => $invoice->id,
                     'subtotal' => $bayar
                 ]);
-    
+
                 $invoice->paid += $bayar;
-    
+
                 // PENGECEKAN STATUS: Toleransi selisih di bawah 1 (koma-komaan)
                 // Kalau sisa hutang di invoice ini kurang dari 1, langsung set lunas
                 if (($totalTagihan - $invoice->paid) < 1) {
@@ -560,14 +562,14 @@ class InvoiceController extends Controller
                 } else {
                     $invoice->status = 'partial';
                 }
-    
+
                 $invoice->save();
                 $sisaUang -= $bayar;
             }
-    
+
             DB::commit();
             return back()->with('success', 'Pembayaran berhasil disimpan.');
-    
+
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors($e->getMessage());
@@ -954,6 +956,102 @@ class InvoiceController extends Controller
         }
     }
 
+    public function editMasuk($id)
+    {
+        // Load invoice beserta relasi details dan deliveryNote-nya
+        $invoice = Invoice::with(['details.orderDetail.barang', 'deliveryNote.order.supplier'])->findOrFail($id);
+
+        $suppliers = Supplier::all();
+        // Ambil semua delivery note tipe masuk buat pilihan dropdown di form edit
+        $deliveryNotes = DeliveryNote::where('type', 'masuk')->with('order.supplier')->get();
+        $orderDetails = OrderDetail::with('barang')->get();
+
+        return view('pembelian.invoice.edit', compact('invoice', 'suppliers', 'deliveryNotes', 'orderDetails'));
+    }
+
+    public function updateMasuk(Request $request, $id)
+    {
+        $request->validate([
+            'no' => 'required|unique:invoices,no,' . $id, // bypass unique untuk id ini sendiri
+            'tgl' => 'required|date',
+            'jatuh_tempo' => 'required|date',
+            'delivery_note_ids' => 'required|array|min:1',
+            'delivery_note_ids.*' => 'exists:delivery_notes,id',
+            'details.*.order_detail_id' => 'required|exists:order_details,id',
+            'details.*.qty' => 'required|numeric|min:1',
+            'details.*.harga' => 'required|numeric|min:0',
+            'ppn_mode' => 'required|in:ppn,non',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $invoice = Invoice::findOrFail($id);
+
+            $dns = DeliveryNote::with('order.supplier')
+                ->whereIn('id', $request->delivery_note_ids)
+                ->get();
+
+            if ($dns->isEmpty()) {
+                throw new \Exception('Delivery Note tidak ditemukan.');
+            }
+
+            $supplier_id = $dns->first()->order->supplier->id ?? null;
+            $no_so = $dns->first()->order->no ?? null;
+
+            foreach ($dns as $dn) {
+                if (($dn->order->supplier->id ?? null) != $supplier_id) {
+                    throw new \Exception('Semua Delivery Note harus dari supplier yang sama.');
+                }
+            }
+
+            // Hitung ulang DPP
+            $dpp = collect($request->details)->sum(fn($item) => $item['qty'] * $item['harga']);
+            $mode = $request->ppn_mode;
+            $ppn = 0;
+            if ($mode === 'ppn') {
+                $ppn = $dpp * 0.11;
+            }
+            $total = $dpp + $ppn;
+
+            // 1. Update data Invoice utama
+            $invoice->update([
+                'no' => $request->no,
+                'no_so' => $no_so,
+                'tgl' => $request->tgl,
+                'jatuh_tempo' => $request->jatuh_tempo,
+                'supplier_id' => $supplier_id,
+                'dpp' => $dpp,
+                'ppn' => $ppn,
+                'grand_total' => $total,
+            ]);
+
+            // 2. SYNC PIVOT DELIVERY NOTE (Otomatis hapus yang lama, ganti yang baru)
+            $invoice->deliveryNote()->sync($request->delivery_note_ids);
+
+            // 3. BABAT HABIS DETAIL ITEM LAMA
+            $invoice->details()->delete();
+
+            // 4. INSERT ULANG DETAIL ITEM BARU
+            foreach ($request->details as $item) {
+                $invoice->details()->create([
+                    'order_detail_id' => $item['order_detail_id'],
+                    'qty' => $item['qty'],
+                    'subtotal' => $item['qty'] * $item['harga'],
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('pembelian.invoice.index')
+                ->with('success', 'Invoice berhasil diperbarui.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors($e->getMessage())->withInput();
+        }
+    }
+
     public function storeKeluar(Request $request)
     {
         $request->validate([
@@ -1086,31 +1184,132 @@ class InvoiceController extends Controller
         }
     }
 
-
-    // ===========================
-    // EDIT
-    // ===========================
-
-    public function edit(Invoice $invoice)
+    public function editKeluar($id)
     {
-        if ($invoice->type == 'in') {
-            $orders = Orders::where('type', 'purchase')
-                ->where('status', '!=', 'draft')
-                ->with('details.barang', 'supplier')
-                ->get();
-            $invoice->load('details.orderDetail.barang');
+        // Load invoice beserta detail, customer, relasi pivot DN, dan relasi ongkirnya
+        $invoice = Invoice::with(['details.orderDetail.barang', 'deliveryNote.order.customer', 'ongkirs', 'customer'])->findOrFail($id);
 
-            return view('pembelian.invoice.edit', compact('invoice', 'orders'));
-        } else {
-            $orders = Orders::where('type', 'sales')
-                ->where('status', '!=', 'draft')
-                ->with('details.barang', 'customer')
-                ->get();
-            $invoice->load('details.orderDetail.barang');
+        $customers = Customer::all();
+        $deliveryNotes = DeliveryNote::where('type', 'keluar')->with('order.customer')->get();
+        $orderDetails = OrderDetail::with('barang')->get();
 
-            return view('penjualan.invoice.edit', compact('invoice', 'orders'));
+        return view('penjualan.invoice.edit', compact('invoice', 'customers', 'deliveryNotes', 'orderDetails'));
+    }
+
+    public function updateKeluar(Request $request, $id)
+    {
+        $request->validate([
+            'tgl' => 'required|date',
+            'jatuh_tempo' => 'required|date',
+            'delivery_note_ids' => 'required|array|min:1',
+            'delivery_note_ids.*' => 'exists:delivery_notes,id',
+            'details' => 'required|array|min:1',
+            'details.*.order_detail_id' => 'required|exists:order_details,id',
+            'details.*.qty' => 'required|numeric|min:1',
+            'details.*.harga' => 'required|numeric|min:0',
+            'ppn_mode' => 'required|in:ppn,non',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $invoice = Invoice::findOrFail($id);
+
+            $dns = DeliveryNote::with('order.customer')
+                ->whereIn('id', $request->delivery_note_ids)
+                ->get();
+
+            if ($dns->isEmpty()) {
+                throw new \Exception('Delivery Note tidak ditemukan.');
+            }
+
+            $customer_id = $dns->first()->order->customer->id ?? null;
+            $no_so = $dns->first()->order->no ?? null;
+
+            foreach ($dns as $dn) {
+                if (($dn->order->customer->id ?? null) != $customer_id) {
+                    throw new \Exception('Semua Delivery Note harus dari customer yang sama.');
+                }
+            }
+
+            // Hitung ulang DPP
+            $dpp = collect($request->details)->sum(function ($item) {
+                return $item['qty'] * $item['harga'];
+            });
+
+            $mode = $request->ppn_mode;
+            $ppn = 0;
+            if ($mode === 'ppn') {
+                $ppn = $dpp * 0.11;
+            }
+            $total = $dpp + $ppn;
+
+            // 1. Update data utama Invoice
+            $invoice->update([
+                'no' => $request->no, // Mempertahankan nomor invoice yang dikirim dari form
+                'no_so' => $no_so,
+                'tgl' => $request->tgl,
+                'jatuh_tempo' => $request->jatuh_tempo,
+                'customer_id' => $customer_id,
+                'dpp' => $dpp,
+                'ppn' => $ppn,
+                'grand_total' => $total,
+            ]);
+
+            // 2. SYNC PIVOT DELIVERY NOTE (Hapus yang lama, setel yang baru)
+            $invoice->deliveryNote()->sync($request->delivery_note_ids);
+
+            // 3. BABAT HABIS DETAIL BARANG LAMA
+            $invoice->details()->delete();
+
+            // 4. INSERT ULANG DETAIL BARANG TERUPDATE
+            foreach ($request->details as $item) {
+                $invoice->details()->create([
+                    'order_detail_id' => $item['order_detail_id'],
+                    'qty' => $item['qty'],
+                    'subtotal' => $item['qty'] * $item['harga'],
+                ]);
+            }
+
+            // 5. MANIPULASI DATA ONGKIR (Babat tulis ulang / update)
+            // Cari tau apakah invoice ini sudah punya ongkir terdaftar sebelumnya
+            $existingOngkir = \App\Models\InvoiceOngkir::where('invoice_id', $invoice->id)->first();
+
+            if ($request->filled('ongkir_nominal') && $request->ongkir_nominal > 0) {
+                if ($existingOngkir) {
+                    // Update data ongkir yang lama
+                    $existingOngkir->update([
+                        'no' => $request->ongkir_no,
+                        'nominal' => $request->ongkir_nominal,
+                        'keterangan' => $request->ongkir_keterangan,
+                    ]);
+                } else {
+                    // Buat data ongkir baru jika sebelumnya gak pakai ongkir
+                    \App\Models\InvoiceOngkir::create([
+                        'invoice_id' => $invoice->id,
+                        'no' => $request->ongkir_no,
+                        'nominal' => $request->ongkir_nominal,
+                        'keterangan' => $request->ongkir_keterangan,
+                    ]);
+                }
+            } else {
+                // Jika checkbox dimatikan atau nominal dikosongkan, hapus data ongkir lamanya
+                if ($existingOngkir) {
+                    $existingOngkir->delete();
+                }
+            }
+
+            DB::commit();
+
+            return redirect()->route('penjualan.invoice.index')
+                ->with('success', 'Invoice Keluar berhasil diperbarui.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors($e->getMessage())->withInput();
         }
     }
+
 
     // ===========================
     // SHOW
@@ -1127,55 +1326,6 @@ class InvoiceController extends Controller
         }
     }
 
-    // ===========================
-    // UPDATE
-    // ===========================
-
-    public function update(Request $request, Invoice $invoice)
-    {
-        $request->validate([
-            'tgl' => 'required|date',
-            'details.*.order_detail_id' => 'required|exists:order_details,id',
-        ]);
-
-        foreach ($invoice->details as $d) {
-            $barang = $d->orderDetail->barang;
-            $qty = $d->orderDetail->qty;
-            if ($invoice->type == 'in') {
-                $barang->stok -= $qty;
-            } else {
-                $barang->stok += $qty;
-            }
-            $barang->save();
-        }
-
-        $invoice->update([
-            'tgl' => $request->tgl,
-            'keterangan' => $request->keterangan,
-            'alamat_kirim' => $request->alamat_kirim
-        ]);
-
-        $invoice->details()->delete();
-
-        foreach ($request->details as $item) {
-            $detail = $invoice->details()->create([
-                'order_detail_id' => $item['order_detail_id'],
-                'keterangan' => $item['keterangan'] ?? null
-            ]);
-
-            $barang = $detail->orderDetail->barang;
-            $qty = $detail->orderDetail->qty;
-            if ($invoice->type == 'in') {
-                $barang->stok += $qty;
-            } else {
-                $barang->stok -= $qty;
-            }
-            $barang->save();
-        }
-
-        $route = $invoice->type == 'in' ? 'pembelian.invoice.index' : 'penjualan.invoice.index';
-        return redirect()->route($route)->with('success', 'Invoice berhasil diupdate.');
-    }
 
     // ===========================
     // DELETE
