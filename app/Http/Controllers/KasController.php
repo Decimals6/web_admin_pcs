@@ -87,11 +87,11 @@ class KasController extends Controller
             ]);
 
             // 1. Hitung ulang jalur kas lama (biar saldo di bawah tanggal lama kembali normal)
-            $this->recalculateKasFrom($tanggalLama, $jenisLama);
+            $this->recalculateKasFrom($id, $jenisLama);
 
             // 2. Jika user mengubah jenis kas atau tanggal, hitung juga jalur kas yang baru
             if ($tanggalLama != $request->tanggal || $jenisLama != $request->jenis) {
-                $this->recalculateKasFrom($request->tanggal, $request->jenis);
+                $this->recalculateKasFrom($request->id, $request->jenis);
             }
 
             DB::commit();
