@@ -31,7 +31,7 @@
                                 $paid = 0;
 
                                 foreach ($customer->invoices as $inv) {
-                                    $total += $inv->grand_total + $inv->ongkirs->sum('nominal');
+                                    $total += $inv->grand_total;
                                     $paid += $inv->paymentDetails->sum('subtotal');
                                 }
 

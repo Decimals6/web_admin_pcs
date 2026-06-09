@@ -15,8 +15,20 @@ class DashboardController extends Controller
         $totalPenjualan = Invoice::where('type', 'out')->sum('grand_total');
         $totalPembelian = Invoice::where('type', 'in')->sum('grand_total');
 
-        $totalPiutang = Invoice::where('type', 'out')
-            ->sum(DB::raw('grand_total - paid'));
+        // $totalPiutang = Invoice::where('type', 'out')
+        //     ->sum(DB::raw('grand_total - paid'));
+
+        $totalPiutang = Invoice::with('paymentDetails')
+            ->where('type', 'out')
+            ->get()
+            ->sum(function ($inv) {
+
+                $paid = $inv->paymentDetails->sum('subtotal');
+
+                $barangPaid = min($paid, $inv->grand_total);
+
+                return $inv->grand_total - $barangPaid;
+            });
 
         $totalHutang = Invoice::where('type', 'in')
             ->with('paymentDetails')

@@ -718,27 +718,27 @@ class InvoiceController extends Controller
                 ]);
             }
 
-            foreach ($inv->ongkirs as $ongkir) {
+            // foreach ($inv->ongkirs as $ongkir) {
 
-                $ongkirPaid = min($sisaPayment, $ongkir->nominal);
-                $ongkirSisa = $ongkir->nominal - $ongkirPaid;
+            //     $ongkirPaid = min($sisaPayment, $ongkir->nominal);
+            //     $ongkirSisa = $ongkir->nominal - $ongkirPaid;
 
-                if ($ongkirSisa > 0) {
+            //     if ($ongkirSisa > 0) {
 
-                    $data->push([
-                        'tgl' => $inv->tgl->format('d-m-Y'),
-                        'no' => 'ONGKIR - ' . ($ongkir->no ?? '-'),
-                        'no_so' => $inv->no,
-                        'jatuh_tempo' => optional($inv->jatuh_tempo)->format('d-m-Y'),
-                        'total' => number_format($ongkir->nominal, 0, ',', '.'),
-                        'paid' => number_format($ongkirPaid, 0, ',', '.'),
-                        'sisa' => number_format($ongkirSisa, 0, ',', '.'),
-                    ]);
+            //         $data->push([
+            //             'tgl' => $inv->tgl->format('d-m-Y'),
+            //             'no' => 'ONGKIR - ' . ($ongkir->no ?? '-'),
+            //             'no_so' => $inv->no,
+            //             'jatuh_tempo' => optional($inv->jatuh_tempo)->format('d-m-Y'),
+            //             'total' => number_format($ongkir->nominal, 0, ',', '.'),
+            //             'paid' => number_format($ongkirPaid, 0, ',', '.'),
+            //             'sisa' => number_format($ongkirSisa, 0, ',', '.'),
+            //         ]);
 
-                }
+            //     }
 
-                $sisaPayment -= $ongkirPaid;
-            }
+            //     $sisaPayment -= $ongkirPaid;
+            // }
         }
 
         return response()->json($data->values());
