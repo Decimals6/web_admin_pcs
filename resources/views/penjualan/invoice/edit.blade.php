@@ -8,12 +8,11 @@
 
         <form action="{{ route('penjualan.invoice.update', $invoice->id) }}" method="POST" id="invoiceForm">
             @csrf
-            @html
             @method('PUT')
 
             @if ($errors->any())
                 <div class="alert alert-danger m-3">
-                    <strong>Error:</strong>
+                    <strong>Penyimpanan Gagal!</strong>
                     <ul>
                         @foreach ($errors->all() as $error)
                             <li>{{ $error }}</li>
@@ -113,7 +112,7 @@
                                 </td>
                                 <td>
                                     <input type="number" name="details[{{ $index }}][qty]" class="form-control qty"
-                                        value="{{ intval($detail->qty) }}" min="1" required>
+                                        value="{{ $detail->qty }}" min="0.01" step="any" required>
                                 </td>
                                 <td>
                                     <input type="number" name="details[{{ $index }}][harga]" class="form-control harga"
@@ -261,9 +260,9 @@
                 let dnDiv = document.createElement('div');
                 dnDiv.className = 'd-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-white';
                 dnDiv.innerHTML = `
-                            <span>${dnText}</span>
-                            <button type="button" class="btn btn-sm btn-danger remove-dn" data-id="${dnId}">Hapus</button>
-                        `;
+                        <span>${dnText}</span>
+                        <button type="button" class="btn btn-sm btn-danger remove-dn" data-id="${dnId}">Hapus</button>
+                    `;
                 selectedDnBox.appendChild(dnDiv);
                 dnSelect.value = '';
 
@@ -282,16 +281,16 @@
                         data.forEach(item => {
                             let row = document.createElement('tr');
                             row.innerHTML = `
-                                        <td>
-                                            ${item.nama_barang}
-                                            <input type="hidden" name="details[${rowIndex}][barang_id]" value="${item.barang_id}">
-                                            <input type="hidden" name="details[${rowIndex}][order_detail_id]" value="${item.order_detail_id}">
-                                        </td>
-                                        <td><input type="number" name="details[${rowIndex}][qty]" class="form-control qty" value="${item.qty}" min="1" required></td>
-                                        <td><input type="number" name="details[${rowIndex}][harga]" class="form-control harga" value="${item.harga}" min="0" step="0.01" required></td>
-                                        <td><input type="number" name="details[${rowIndex}][subtotal]" class="form-control subtotal-detail" readonly style="background-color:#e9ecef;"></td>
-                                        <td><button type="button" class="btn btn-danger btn-sm remove-row">-</button></td>
-                                    `;
+                                    <td>
+                                        ${item.nama_barang}
+                                        <input type="hidden" name="details[${rowIndex}][barang_id]" value="${item.barang_id}">
+                                        <input type="hidden" name="details[${rowIndex}][order_detail_id]" value="${item.order_detail_id}">
+                                    </td>
+                                    <td><input type="number" name="details[${rowIndex}][qty]" class="form-control qty" value="${item.qty}" min="0.01" step="any" required></td>
+                                    <td><input type="number" name="details[${rowIndex}][harga]" class="form-control harga" value="${item.harga}" min="0" step="0.01" required></td>
+                                    <td><input type="number" name="details[${rowIndex}][subtotal]" class="form-control subtotal-detail" readonly style="background-color:#e9ecef;"></td>
+                                    <td><button type="button" class="btn btn-danger btn-sm remove-row">-</button></td>
+                                `;
                             itemsTable.appendChild(row);
                             calculateRow(row);
                             rowIndex++;
@@ -338,6 +337,29 @@
                     calculateTotal();
                 }
             });
+
+            // === BARIS PERBAIKAN: Logic Tombol Kunci/Buka Nomor Invoice ===
+            const inputInvoice = document.getElementById("no_invoice");
+            const btnToggleInvoice = document.getElementById("btn-toggle-invoice");
+
+            if (inputInvoice && btnToggleInvoice) {
+                btnToggleInvoice.addEventListener("click", function () {
+                    if (inputInvoice.hasAttribute("readonly")) {
+                        inputInvoice.removeAttribute("readonly");
+                        inputInvoice.style.backgroundColor = "#fff";
+                        btnToggleInvoice.classList.remove("btn-outline-secondary");
+                        btnToggleInvoice.classList.add("btn-danger");
+                        btnToggleInvoice.innerHTML = '<i class="fas fa-lock"></i>';
+                        inputInvoice.focus();
+                    } else {
+                        inputInvoice.setAttribute("readonly", true);
+                        inputInvoice.style.backgroundColor = "#e9ecef";
+                        btnToggleInvoice.classList.remove("btn-danger");
+                        btnToggleInvoice.classList.add("btn-outline-secondary");
+                        btnToggleInvoice.innerHTML = '<i class="fas fa-pencil-alt"></i>';
+                    }
+                });
+            }
         });
     </script>
 @endsection
