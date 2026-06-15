@@ -1089,6 +1089,7 @@ class InvoiceController extends Controller
     public function storeKeluar(Request $request)
     {
         $request->validate([
+            'no' => 'required|string',
             'tgl' => 'required|date',
             'jatuh_tempo' => 'required|date',
             'delivery_note_ids' => 'required|array|min:1',
@@ -1153,7 +1154,7 @@ class InvoiceController extends Controller
             // 4. Hitung Grand Total Akhir
             $grandTotal = $subtotalSetelahDiskon + $ppn + $ongkir;
 
-            $invoiceNumber = generateDocumentNumber('invoices', 'PCS-INV', 'out');
+            $invoiceNumber = $request->input('no', 0) ?? generateDocumentNumber('invoices', 'PCS-INV', 'out');
 
             // Simpan langsung ke tabel invoices dengan field diskon & ongkir terintegrasi
             $invoice = Invoice::create([
