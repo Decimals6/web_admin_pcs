@@ -144,8 +144,11 @@
     <br>
 
     @php
+        $subtotal = $invoice->dpp;
+        $diskon = $invoice->diskon;
+        $total = $subtotal-$diskon;
         $ppn = $invoice->ppn;
-        $grandTotal = $invoice->grand_total;
+        $grandTotal = $total+$ppn;
     @endphp
 
     <table class="no-border">
@@ -155,9 +158,16 @@
 
                 <table>
                     <tr>
+                        <td>Diskon</td>
+                        <td>
+                            Rp {{ number_format($diskon, 0, ',', '.') }}
+                        </td>
+                    </tr>
+
+                    <tr>
                         <td>Dasar Pengenaan Pajak</td>
                         <td>
-                            Rp {{ number_format($subtotal, 0, ',', '.') }}
+                            Rp {{ number_format($total, 0, ',', '.') }}
                         </td>
                     </tr>
 

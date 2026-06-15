@@ -27,6 +27,10 @@
         .text-right {
             text-align: right;
         }
+        
+        .text-center {
+            text-align: center;
+        }
     </style>
 </head>
 
@@ -34,7 +38,6 @@
 
     <table class="no-border">
         <tr>
-
             <td width="60%">
                 <b>{{ config('company.nama') }}</b><br>
                 {{ config('company.alamat') }}<br>
@@ -44,10 +47,9 @@
 
             <td width="40%">
                 Kepada Yth,<br>
-                <b>{{ $invoice->deliveryNote->order->customer->nama_customer }}</b><br>
-                {{ $invoice->deliveryNote->order->customer->alamat }}
+                <b>{{ $invoice->customer->nama_customer ?? '-' }}</b><br>
+                {{ $invoice->customer->alamat ?? '-' }}
             </td>
-
         </tr>
     </table>
 
@@ -57,105 +59,76 @@
 
     <table class="no-border">
         <tr>
-
             <td width="50%">
-
                 <table class="no-border">
                     <tr>
                         <td width="110">No SJ</td>
-                        <td>: {{ $invoice->deliveryNote->no }}</td>
+                        <td>: {{ $invoice->deliveryNote->pluck('no')->implode(', ') }}</td>
                     </tr>
-
                     <tr>
                         <td>No Faktur</td>
                         <td>: {{ $invoice->no }}</td>
                     </tr>
                 </table>
-
             </td>
 
             <td width="50%">
-
                 <table class="no-border">
                     <tr>
                         <td width="110">No PO</td>
-                        <td>: {{ $invoice->deliveryNote->order->no }}</td>
+                        <td>: {{ $invoice->deliveryNote->pluck('order.no')->unique()->filter()->implode(', ') ?: '-' }}</td>
                     </tr>
-
                     <tr>
                         <td>Tanggal Invoice</td>
-                        <td>: {{ $invoice->tgl->translatedFormat('d F Y') }}</td>
+                        <td>: {{ $invoice->tgl ? $invoice->tgl->translatedFormat('d F Y') : '-' }}</td>
                     </tr>
                 </table>
-
             </td>
-
         </tr>
     </table>
 
     <br>
 
     @php
-        $total = 0;
-        $no = 1;
+        $total = $invoice->ongkir ?? 0;
     @endphp
 
     <table>
-
         <thead>
             <tr>
                 <th width="5%">No</th>
-                <th>No Ongkir</th>
+                <th width="25%">No Faktur</th>
                 <th>Keterangan</th>
-                <th width="20%">Nominal (Rp)</th>
+                <th width="25%">Nominal (Rp)</th>
             </tr>
         </thead>
-
         <tbody>
-
-            @foreach($invoice->ongkirs as $ongkir)
-
-                @php
-                    $total += $ongkir->nominal;
-                @endphp
-
-                <tr>
-                    <td>{{ $no++ }}</td>
-                    <td>{{ $ongkir->no ?? '-' }}</td>
-                    <td>{{ $ongkir->keterangan ?? '-' }}</td>
-                    <td class="text-right">
-                        {{ number_format($ongkir->nominal, 0, ',', '.') }}
-                    </td>
-                </tr>
-
-            @endforeach
-
+            <tr>
+                <td class="text-center">1</td>
+                <td>{{ $invoice->no }}</td>
+                <td>Biaya Pengiriman Logistik Invoice {{ $invoice->no }}</td>
+                <td class="text-right">
+                    {{ number_format($total, 0, ',', '.') }}
+                </td>
+            </tr>
         </tbody>
-
     </table>
 
     <br>
 
     <table class="no-border">
         <tr>
-
             <td width="60%"></td>
-
             <td width="40%">
-
                 <table>
-
                     <tr>
                         <td><b>Total Ongkir</b></td>
-                        <td>
+                        <td class="text-right">
                             <b>Rp {{ number_format($total, 0, ',', '.') }}</b>
                         </td>
                     </tr>
-
                 </table>
-
             </td>
-
         </tr>
     </table>
 
@@ -163,28 +136,20 @@
 
     <table class="no-border">
         <tr>
-
             <td width="70%">
-
                 Jumlah Yang Harus Dibayar #
-                {{ trim(\App\Helpers\Terbilang::make($total)) }} Rupiah<br>
+                {{ trim(\App\Helpers\Terbilang::make($total)) }} Rupiah<br><br>
 
                 Pembayaran ditransfer ke:<br>
-
                 <b>{{ config('company.nama') }}</b><br>
                 {{ config('company.bank') }}<br>
                 {{ config('company.bank_rekening') }}
-
             </td>
 
             <td width="30%" style="text-align:center;">
-
                 Hormat Kami,<br><br><br><br><br><br><br>
-
                 {{ config('company.nama') }}
-
             </td>
-
         </tr>
     </table>
 

@@ -8,6 +8,7 @@
 
         <form action="{{ route('penjualan.invoice.update', $invoice->id) }}" method="POST" id="invoiceForm">
             @csrf
+            @html
             @method('PUT')
 
             @if ($errors->any())
@@ -112,12 +113,11 @@
                                 </td>
                                 <td>
                                     <input type="number" name="details[{{ $index }}][qty]" class="form-control qty"
-                                        value="{{ intval($detail->qty) }}" min="1" step="1" required>
+                                        value="{{ intval($detail->qty) }}" min="1" required>
                                 </td>
                                 <td>
                                     <input type="number" name="details[{{ $index }}][harga]" class="form-control harga"
                                         value="{{ $detail->orderDetail->harga ?? 0 }}" min="0" step="0.01" required>
-                                    end
                                 </td>
                                 <td>
                                     <input type="number" name="details[{{ $index }}][subtotal]"
@@ -141,6 +141,16 @@
                             <option value="non" {{ $invoice->ppn == 0 ? 'selected' : '' }}>Non PPN</option>
                         </select>
                     </div>
+                    <div class="col-md-3">
+                        <label>Nominal Ongkir</label>
+                        <input type="number" name="ongkir" id="ongkir" class="form-control"
+                            value="{{ $invoice->ongkir ?? 0 }}" min="0" step="0.01">
+                    </div>
+                    <div class="col-md-3">
+                        <label>Diskon Potongan</label>
+                        <input type="number" name="diskon" id="diskon" class="form-control"
+                            value="{{ $invoice->diskon ?? 0 }}" min="0" step="0.01">
+                    </div>
                 </div>
 
                 <div class="row">
@@ -155,7 +165,7 @@
                             readonly style="background-color:#e9ecef;">
                     </div>
                     <div class="col-md-3">
-                        <label>Total</label>
+                        <label>Grand Total</label>
                         <input type="number" name="total" id="total" class="form-control"
                             value="{{ $invoice->grand_total }}" readonly style="background-color:#e9ecef;">
                     </div>
@@ -163,36 +173,6 @@
                         <label>Status</label>
                         <input type="text" name="status" class="form-control" value="{{ $invoice->status }}" readonly
                             style="background-color:#e9ecef;">
-                    </div>
-                </div>
-
-                <hr>
-                <h5>Ongkir</h5>
-                @php
-                    $hasOngkir = $invoice->ongkir ? true : false;
-                @endphp
-                <div class="form-check mb-2">
-                    <input class="form-check-input" type="checkbox" id="pakai_ongkir" {{ $hasOngkir ? 'checked' : '' }}>
-                    <label class="form-check-label">Tambahkan Ongkir</label>
-                </div>
-
-                <div id="ongkir-fields" style="display: {{ $hasOngkir ? 'block' : 'none' }};">
-                    <div class="row">
-                        <div class="col-md-3">
-                            <label>No Ongkir / Resi</label>
-                            <input type="text" name="ongkir_no" class="form-control"
-                                value="{{ $invoice->ongkir->no ?? '' }}">
-                        </div>
-                        <div class="col-md-3">
-                            <label>Nominal Ongkir</label>
-                            <input type="number" name="ongkir_nominal" class="form-control"
-                                value="{{ $invoice->ongkir->nominal ?? '' }}">
-                        </div>
-                        <div class="col-md-6">
-                            <label>Keterangan</label>
-                            <input type="text" name="ongkir_keterangan" class="form-control"
-                                value="{{ $invoice->ongkir->keterangan ?? '' }}">
-                        </div>
                     </div>
                 </div>
             </div>
@@ -211,16 +191,17 @@
             const itemsTable = document.querySelector('#items-table tbody');
             const customerInput = document.getElementById('customer_name');
             const ppnMode = document.getElementById('ppn_mode');
+            const diskonInput = document.getElementById('diskon');
+            const ongkirInput = document.getElementById('ongkir');
+
             const dnSelect = document.getElementById('delivery_note_select');
             const addDnBtn = document.getElementById('add_dn');
             const selectedDnBox = document.getElementById('selected_dn');
-            const ongkirCheckbox = document.getElementById('pakai_ongkir');
-            const ongkirFields = document.getElementById('ongkir-fields');
             const hiddenContainer = document.getElementById('hidden_dn_inputs');
 
             let rowIndex = {{ $invoice->details->count() }};
-
             let selectedDN = [];
+
             @foreach($invoice->deliveryNote as $dnOld)
                 selectedDN.push("{{ $dnOld->id }}");
                 let opt = dnSelect.querySelector(`option[value="${{ $dnOld->id }}"]`);
@@ -228,7 +209,7 @@
             @endforeach
 
                 function calculateRow(row) {
-                    let qty = parseInt(row.querySelector('.qty').value) || 0;
+                    let qty = parseFloat(row.querySelector('.qty').value) || 0;
                     let harga = parseFloat(row.querySelector('.harga').value) || 0;
                     row.querySelector('.subtotal-detail').value = (qty * harga).toFixed(2);
                     calculateTotal();
@@ -240,18 +221,24 @@
                     dpp += parseFloat(input.value) || 0;
                 });
 
+                let diskon = parseFloat(diskonInput.value) || 0;
+                let ongkir = parseFloat(ongkirInput.value) || 0;
+
+                let subtotalSetelahDiskon = dpp - diskon;
+                if (subtotalSetelahDiskon < 0) subtotalSetelahDiskon = 0;
+
                 let mode = ppnMode ? ppnMode.value : 'ppn';
-                let pajak = (mode === 'ppn') ? (dpp * 0.11) : 0;
-                let total = dpp + pajak;
+                let pajak = (mode === 'ppn') ? (subtotalSetelahDiskon * 0.11) : 0;
+                let grandTotal = subtotalSetelahDiskon + pajak + ongkir;
 
                 document.getElementById('dpp').value = dpp.toFixed(2);
                 document.getElementById('pajak').value = pajak.toFixed(2);
-                document.getElementById('total').value = total.toFixed(2);
+                document.getElementById('total').value = grandTotal.toFixed(2);
             }
 
-            if (ppnMode) {
-                ppnMode.addEventListener('change', calculateTotal);
-            }
+            if (ppnMode) ppnMode.addEventListener('change', calculateTotal);
+            if (diskonInput) diskonInput.addEventListener('input', calculateTotal);
+            if (ongkirInput) ongkirInput.addEventListener('input', calculateTotal);
 
             addDnBtn.addEventListener('click', function () {
                 const dnId = dnSelect.value;
@@ -274,9 +261,9 @@
                 let dnDiv = document.createElement('div');
                 dnDiv.className = 'd-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-white';
                 dnDiv.innerHTML = `
-                        <span>${dnText}</span>
-                        <button type="button" class="btn btn-sm btn-danger remove-dn" data-id="${dnId}">Hapus</button>
-                    `;
+                            <span>${dnText}</span>
+                            <button type="button" class="btn btn-sm btn-danger remove-dn" data-id="${dnId}">Hapus</button>
+                        `;
                 selectedDnBox.appendChild(dnDiv);
                 dnSelect.value = '';
 
@@ -295,16 +282,16 @@
                         data.forEach(item => {
                             let row = document.createElement('tr');
                             row.innerHTML = `
-                                    <td>
-                                        ${item.nama_barang}
-                                        <input type="hidden" name="details[${rowIndex}][barang_id]" value="${item.barang_id}">
-                                        <input type="hidden" name="details[${rowIndex}][order_detail_id]" value="${item.order_detail_id}">
-                                    </td>
-                                    <td><input type="number" name="details[${rowIndex}][qty]" class="form-control qty" value="${item.qty}" min="1" step="1" required></td>
-                                    <td><input type="number" name="details[${rowIndex}][harga]" class="form-control harga" value="${item.harga}" min="0" step="0.01" required></td>
-                                    <td><input type="number" name="details[${rowIndex}][subtotal]" class="form-control subtotal-detail" readonly></td>
-                                    <td><button type="button" class="btn btn-danger btn-sm remove-row">-</button></td>
-                                `;
+                                        <td>
+                                            ${item.nama_barang}
+                                            <input type="hidden" name="details[${rowIndex}][barang_id]" value="${item.barang_id}">
+                                            <input type="hidden" name="details[${rowIndex}][order_detail_id]" value="${item.order_detail_id}">
+                                        </td>
+                                        <td><input type="number" name="details[${rowIndex}][qty]" class="form-control qty" value="${item.qty}" min="1" required></td>
+                                        <td><input type="number" name="details[${rowIndex}][harga]" class="form-control harga" value="${item.harga}" min="0" step="0.01" required></td>
+                                        <td><input type="number" name="details[${rowIndex}][subtotal]" class="form-control subtotal-detail" readonly style="background-color:#e9ecef;"></td>
+                                        <td><button type="button" class="btn btn-danger btn-sm remove-row">-</button></td>
+                                    `;
                             itemsTable.appendChild(row);
                             calculateRow(row);
                             rowIndex++;
@@ -338,7 +325,6 @@
                 }
             });
 
-            // Hitung otomatis saat mengetik nominal harga/qty terupdate
             itemsTable.addEventListener('input', function (e) {
                 if (e.target.classList.contains('qty') || e.target.classList.contains('harga')) {
                     let row = e.target.closest('tr');
@@ -352,40 +338,6 @@
                     calculateTotal();
                 }
             });
-
-            if (ongkirCheckbox) {
-                ongkirCheckbox.addEventListener('change', function () {
-                    if (this.checked) {
-                        ongkirFields.style.display = 'block';
-                    } else {
-                        ongkirFields.style.display = 'none';
-                        // Bersihkan inputan ongkir jika centang dicopot
-                        ongkirFields.querySelectorAll('input').value = '';
-                    }
-                });
-            }
-
-            const inputInvoice = document.getElementById("no_invoice");
-            const btnToggleInvoice = document.getElementById("btn-toggle-invoice");
-
-            if (inputInvoice && btnToggleInvoice) {
-                btnToggleInvoice.addEventListener("click", function () {
-                    if (inputInvoice.hasAttribute("readonly")) {
-                        inputInvoice.removeAttribute("readonly");
-                        inputInvoice.style.backgroundColor = "#fff";
-                        btnToggleInvoice.classList.remove("btn-outline-secondary");
-                        btnToggleInvoice.classList.add("btn-danger");
-                        btnToggleInvoice.innerHTML = '<i class="fas fa-lock"></i>';
-                        inputInvoice.focus();
-                    } else {
-                        inputInvoice.setAttribute("readonly", true);
-                        inputInvoice.style.backgroundColor = "#e9ecef";
-                        btnToggleInvoice.classList.remove("btn-danger");
-                        btnToggleInvoice.classList.add("btn-outline-secondary");
-                        btnToggleInvoice.innerHTML = '<i class="fas fa-pencil-alt"></i>';
-                    }
-                });
-            }
         });
     </script>
 @endsection

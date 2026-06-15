@@ -11,6 +11,17 @@
             @method('PUT')
             <div class="card-body">
 
+                @if ($errors->any())
+                    <div class="alert alert-danger">
+                        <strong>Penyimpanan Gagal!</strong>
+                        <ul>
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
                 <div class="row mb-2">
                     <div class="col-md-2">
                         <label>No. Invoice</label>
@@ -19,7 +30,9 @@
 
                     <div class="col-md-2">
                         <label>Tanggal Invoice</label>
-                        <input type="date" name="tgl" class="form-control" value="{{ $invoice->tgl }}" required>
+                        <input type="date" name="tgl" class="form-control"
+                            value="{{ $invoice->tgl ? \Carbon\Carbon::parse($invoice->tgl)->format('Y-m-d') : '' }}"
+                            required>
                     </div>
 
                     <div class="col-md-3">
@@ -47,7 +60,8 @@
 
                     <div class="col-md-2">
                         <label>Tgl Jatuh Tempo</label>
-                        <input type="date" name="jatuh_tempo" class="form-control" value="{{ $invoice->jatuh_tempo }}"
+                        <input type="date" name="jatuh_tempo" class="form-control"
+                            value="{{ $invoice->jatuh_tempo ? \Carbon\Carbon::parse($invoice->jatuh_tempo)->format('Y-m-d') : '' }}"
                             required>
                     </div>
                 </div>
@@ -99,7 +113,7 @@
                                 </td>
                                 <td>
                                     <input type="number" name="details[{{ $index }}][harga]" class="form-control harga"
-                                        value="{{ $detail->orderDetail->harga ?? 0 }}" min="0" step="1" required>
+                                        value="{{ $detail->orderDetail->harga ?? 0 }}" min="0" step="0.01" required>
                                 </td>
                                 <td>
                                     <input type="number" name="details[{{ $index }}][subtotal]"
@@ -122,6 +136,11 @@
                             <option value="ppn" {{ $invoice->ppn > 0 ? 'selected' : '' }}>PPN 11%</option>
                             <option value="non" {{ $invoice->ppn == 0 ? 'selected' : '' }}>Non PPN</option>
                         </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label>Diskon Potongan</label>
+                        <input type="number" name="diskon" id="diskon" class="form-control"
+                            value="{{ $invoice->diskon ?? 0 }}" min="0" step="0.01">
                     </div>
                 </div>
 
@@ -151,7 +170,7 @@
             </div>
 
             <div class="card-footer">
-                <button class="btn btn-success">Perbarui Invoice</button>
+                <button class="btn btn-success" type="submit">Perbarui Invoice</button>
                 <a href="{{ route('pembelian.invoice.index') }}" class="btn btn-secondary">Kembali</a>
             </div>
         </form>
@@ -167,14 +186,15 @@
             const addDnBtn = document.getElementById('add_dn');
             const selectedDnBox = document.getElementById('selected_dn');
             const ppnMode = document.getElementById('ppn_mode');
+            const diskonInput = document.getElementById('diskon');
             const hiddenContainer = document.getElementById('hidden_dn_inputs');
 
             let rowIndex = {{ $invoice->details->count() }};
-
             let selectedDN = [];
+
             @foreach($invoice->deliveryNote as $dnOld)
                 selectedDN.push("{{ $dnOld->id }}");
-                let opt = dnSelect.querySelector(`option[value="{{ $dnOld->id }}"]`);
+                let opt = dnSelect.querySelector(`option[value="${{ $dnOld->id }}"]`);
                 if (opt) opt.style.display = 'none';
             @endforeach
 
@@ -191,9 +211,13 @@
                     dpp += parseFloat(input.value) || 0;
                 });
 
+                let diskon = parseFloat(diskonInput.value) || 0;
+                let subtotalSetelahDiskon = dpp - diskon;
+                if (subtotalSetelahDiskon < 0) subtotalSetelahDiskon = 0;
+
                 let mode = ppnMode.value;
-                let pajak = (mode === 'ppn') ? (dpp * 0.11) : 0;
-                let total = dpp + pajak;
+                let pajak = (mode === 'ppn') ? (subtotalSetelahDiskon * 0.11) : 0;
+                let total = subtotalSetelahDiskon + pajak;
 
                 document.getElementById('dpp').value = dpp.toFixed(2);
                 document.getElementById('pajak').value = pajak.toFixed(2);
@@ -201,6 +225,7 @@
             }
 
             ppnMode.addEventListener('change', calculateTotal);
+            if (diskonInput) diskonInput.addEventListener('input', calculateTotal);
 
             addDnBtn.addEventListener('click', function () {
                 const dnId = dnSelect.value;
@@ -208,7 +233,6 @@
                 if (selectedDN.includes(dnId)) { alert('Delivery Note sudah dipilih'); return; }
 
                 const dnText = dnSelect.options[dnSelect.selectedIndex].text;
-
                 if (selectedDN.length === 0) { selectedDnBox.innerHTML = ''; }
                 selectedDN.push(dnId);
 
@@ -224,9 +248,9 @@
                 let div = document.createElement('div');
                 div.className = 'd-flex justify-content-between align-items-center bg-white border rounded px-2 py-1 mb-1';
                 div.innerHTML = `
-                            <span>${dnText}</span>
-                            <button type="button" class="btn btn-sm btn-danger remove-dn" data-id="${dnId}">Hapus</button>
-                        `;
+                        <span>${dnText}</span>
+                        <button type="button" class="btn btn-sm btn-danger remove-dn" data-id="${dnId}">Hapus</button>
+                    `;
                 selectedDnBox.appendChild(div);
                 dnSelect.value = "";
 
@@ -234,6 +258,7 @@
             });
 
             function loadDN(dnId) {
+                // PERBAIKAN UTAMA: Route diarahkan ke pembelian, bukan penjualan lagi
                 fetch(`/pembelian/delivery-note/${dnId}/details`)
                     .then(res => res.json())
                     .then(data => {
@@ -245,16 +270,16 @@
                         data.forEach(item => {
                             let row = document.createElement('tr');
                             row.innerHTML = `
-                                        <td>
-                                            ${item.nama_barang}
-                                            <input type="hidden" name="details[${rowIndex}][barang_id]" value="${item.barang_id}">
-                                            <input type="hidden" name="details[${rowIndex}][order_detail_id]" value="${item.order_detail_id}">
-                                        </td>
-                                        <td><input type="number" name="details[${rowIndex}][qty]" class="form-control qty" value="${item.qty}" min="1" step="1" required></td>
-                                        <td><input type="number" name="details[${rowIndex}][harga]" class="form-control harga" value="${item.harga}" min="0" step="1" required></td>
-                                        <td><input type="number" name="details[${rowIndex}][subtotal]" class="form-control subtotal-detail" readonly style="background-color:#e9ecef;"></td>
-                                        <td><button type="button" class="btn btn-danger btn-sm remove-row">-</button></td>
-                                    `;
+                                    <td>
+                                        ${item.nama_barang}
+                                        <input type="hidden" name="details[${rowIndex}][barang_id]" value="${item.barang_id}">
+                                        <input type="hidden" name="details[${rowIndex}][order_detail_id]" value="${item.order_detail_id}">
+                                    </td>
+                                    <td><input type="number" name="details[${rowIndex}][qty]" class="form-control qty" value="${item.qty}" min="1" step="1" required></td>
+                                    <td><input type="number" name="details[${rowIndex}][harga]" class="form-control harga" value="${item.harga}" min="0" step="0.01" required></td>
+                                    <td><input type="number" name="details[${rowIndex}][subtotal]" class="form-control subtotal-detail" readonly style="background-color:#e9ecef;"></td>
+                                    <td><button type="button" class="btn btn-danger btn-sm remove-row">-</button></td>
+                                `;
                             itemsTable.appendChild(row);
                             calculateRow(row);
                             rowIndex++;
@@ -288,7 +313,6 @@
                 }
             });
 
-            // TARGET UTAMA: Event delegation biar ngetik harga / qty langsung auto hitung subtotal & total
             itemsTable.addEventListener('input', function (e) {
                 if (e.target.classList.contains('qty') || e.target.classList.contains('harga')) {
                     let row = e.target.closest('tr');

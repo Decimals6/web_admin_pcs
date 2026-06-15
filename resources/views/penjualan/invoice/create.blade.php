@@ -6,7 +6,6 @@
             <h4>Buat Invoice Penjualan</h4>
         </div>
 
-        <!-- Pastikan route store sesuai controller -->
         <form action="{{ route('penjualan.invoice.store') }}" method="POST" id="invoiceForm">
             @csrf
             @if ($errors->any())
@@ -35,7 +34,6 @@
                             </button>
                         </div>
                     </div>
-
 
                     <div class="col-md-2">
                         <label>Tanggal Invoice</label>
@@ -66,7 +64,6 @@
                         </div>
                     </div>
 
-
                     <div class="col-md-2">
                         <label>Tgl Jatuh Tempo</label>
                         <input type="date" name="jatuh_tempo" class="form-control" value="{{ date('Y-m-d') }}" required>
@@ -90,17 +87,26 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Row akan diisi otomatis via JS -->
-                    </tbody>
+                        </tbody>
                 </table>
 
                 <hr>
-                <div class="col-md-3">
-                    <label>Pajak</label>
-                    <select name="ppn_mode" id="ppn_mode" class="form-control">
-                        <option value="ppn">PPN 11%</option>
-                        <option value="non">Non PPN</option>
-                    </select>
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <label>Pajak</label>
+                        <select name="ppn_mode" id="ppn_mode" class="form-control">
+                            <option value="ppn">PPN 11%</option>
+                            <option value="non">Non PPN</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label>Nominal Ongkir</label>
+                        <input type="number" name="ongkir" id="ongkir" class="form-control" value="0" min="0" step="0.01">
+                    </div>
+                    <div class="col-md-3">
+                        <label>Diskon Potongan</label>
+                        <input type="number" name="diskon" id="diskon" class="form-control" value="0" min="0" step="0.01">
+                    </div>
                 </div>
 
                 <hr>
@@ -116,7 +122,7 @@
                             style="background-color:#e9ecef;">
                     </div>
                     <div class="col-md-3">
-                        <label>Total</label>
+                        <label>Grand Total</label>
                         <input type="number" name="total" id="total" class="form-control" readonly
                             style="background-color:#e9ecef;">
                     </div>
@@ -124,35 +130,6 @@
                         <label>Status</label>
                         <input type="text" name="status" class="form-control" value="unpaid" readonly
                             style="background-color:#e9ecef;">
-                    </div>
-                </div>
-
-                <hr>
-                <h5>Ongkir</h5>
-
-                <div class="form-check mb-2">
-                    <input class="form-check-input" type="checkbox" id="pakai_ongkir">
-                    <label class="form-check-label">
-                        Tambahkan Ongkir
-                    </label>
-                </div>
-
-                <div id="ongkir-fields" style="display:none;">
-                    <div class="row">
-                        <div class="col-md-3">
-                            <label>No Ongkir / Resi</label>
-                            <input type="text" name="ongkir_no" class="form-control">
-                        </div>
-
-                        <div class="col-md-3">
-                            <label>Nominal Ongkir</label>
-                            <input type="number" name="ongkir_nominal" class="form-control">
-                        </div>
-
-                        <div class="col-md-6">
-                            <label>Keterangan</label>
-                            <input type="text" name="ongkir_keterangan" class="form-control">
-                        </div>
                     </div>
                 </div>
             </div>
@@ -172,58 +149,58 @@
             const itemsTable = document.querySelector('#items-table tbody');
             const customerInput = document.getElementById('customer_name');
             const ppnMode = document.getElementById('ppn_mode');
+            const diskonInput = document.getElementById('diskon');
+            const ongkirInput = document.getElementById('ongkir');
 
             const dnSelect = document.getElementById('delivery_note_select');
             const addDnBtn = document.getElementById('add_dn');
             const selectedDnBox = document.getElementById('selected_dn');
 
-            const ongkirCheckbox = document.getElementById('pakai_ongkir');
-            const ongkirFields = document.getElementById('ongkir-fields');
-
             let rowIndex = 0;
-
             let selectedDN = [];
 
             function calculateRow(row) {
-
                 let qty = parseFloat(row.querySelector('.qty').value) || 0;
                 let harga = parseFloat(row.querySelector('.harga').value) || 0;
 
                 row.querySelector('.subtotal-detail').value = (qty * harga).toFixed(2);
-
                 calculateTotal();
             }
 
             function calculateTotal() {
-
                 let dpp = 0;
 
                 document.querySelectorAll('.subtotal-detail').forEach(input => {
                     dpp += parseFloat(input.value) || 0;
                 });
 
-                let mode = ppnMode ? ppnMode.value : 'ppn';
+                let diskon = parseFloat(diskonInput.value) || 0;
+                let ongkir = parseFloat(ongkirInput.value) || 0;
 
+                // Hitung subtotal setelah dipotong diskon
+                let subtotalSetelahDiskon = dpp - diskon;
+                if (subtotalSetelahDiskon < 0) subtotalSetelahDiskon = 0;
+
+                let mode = ppnMode ? ppnMode.value : 'ppn';
                 let pajak = 0;
 
                 if (mode === 'ppn') {
-                    pajak = dpp * 0.11;
+                    pajak = subtotalSetelahDiskon * 0.11;
                 }
 
-                let total = dpp + pajak;
+                // Rumus baru: Subtotal setelah diskon + Pajak + Ongkir
+                let grandTotal = subtotalSetelahDiskon + pajak + ongkir;
 
                 document.getElementById('dpp').value = dpp.toFixed(2);
                 document.getElementById('pajak').value = pajak.toFixed(2);
-                document.getElementById('total').value = total.toFixed(2);
-
+                document.getElementById('total').value = grandTotal.toFixed(2);
             }
 
-            if (ppnMode) {
-                ppnMode.addEventListener('change', calculateTotal);
-            }
+            if (ppnMode) ppnMode.addEventListener('change', calculateTotal);
+            if (diskonInput) diskonInput.addEventListener('input', calculateTotal);
+            if (ongkirInput) ongkirInput.addEventListener('input', calculateTotal);
 
             addDnBtn.addEventListener('click', function () {
-
                 const dnId = dnSelect.value;
 
                 if (!dnId) {
@@ -237,40 +214,29 @@
                 }
 
                 const dnText = dnSelect.options[dnSelect.selectedIndex].text;
-
                 selectedDN.push(dnId);
-                // sembunyikan option dari dropdown
                 dnSelect.querySelector(`option[value="${dnId}"]`).style.display = 'none';
 
-                // tambah hidden input
                 let hidden = document.createElement('input');
                 hidden.type = 'hidden';
                 hidden.name = 'delivery_note_ids[]';
                 hidden.value = dnId;
-
                 document.getElementById('invoiceForm').appendChild(hidden);
 
-                // tampilkan di list
                 let dnDiv = document.createElement('div');
-
                 dnDiv.className = 'd-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-white';
-
                 dnDiv.innerHTML = `
-                                    <span>${dnText}</span>
-                                    <button type="button" class="btn btn-sm btn-danger remove-dn" data-id="${dnId}">
-                                        Hapus
-                                    </button>
-                                `;
-
+                    <span>${dnText}</span>
+                    <button type="button" class="btn btn-sm btn-danger remove-dn" data-id="${dnId}">
+                        Hapus
+                    </button>
+                `;
                 selectedDnBox.appendChild(dnDiv);
-
                 dnSelect.value = '';
 
-                // fetch detail DN
                 fetch(`/penjualan/delivery-note/${dnId}/details`)
                     .then(res => res.json())
                     .then(data => {
-
                         if (data.length === 0) return;
 
                         if (!customerInput.value) {
@@ -278,181 +244,92 @@
                         }
 
                         data.forEach(item => {
-
                             let row = document.createElement('tr');
-
                             row.innerHTML = `
-                                            <td>
-                                                ${item.nama_barang}
-                                                <input type="hidden" name="details[${rowIndex}][barang_id]" value="${item.barang_id}">
-                                                <input type="hidden" name="details[${rowIndex}][order_detail_id]" value="${item.order_detail_id}">
-                                            </td>
-
-                                            <td>
-                                                <input type="number" name="details[${rowIndex}][qty]"
-                                                class="form-control qty" value="${item.qty}" readonly>
-                                            </td>
-
-                                            <td>
-                                                <input type="number" name="details[${rowIndex}][harga]"
-                                                class="form-control harga" value="${item.harga}"
-                                                readonly style="background-color:#e9ecef;">
-                                            </td>
-
-                                            <td>
-                                                <input type="number" name="details[${rowIndex}][subtotal]"
-                                                class="form-control subtotal-detail" readonly
-                                                style="background-color:#e9ecef;">
-                                            </td>
-
-                                            <td>
-                                                <button type="button" class="btn btn-danger btn-sm remove-row">-</button>
-                                            </td>
-                                        `;
-
+                                <td>
+                                    ${item.nama_barang}
+                                    <input type="hidden" name="details[${rowIndex}][barang_id]" value="${item.barang_id}">
+                                    <input type="hidden" name="details[${rowIndex}][order_detail_id]" value="${item.order_detail_id}">
+                                </td>
+                                <td>
+                                    <input type="number" name="details[${rowIndex}][qty]" class="form-control qty" value="${item.qty}" readonly>
+                                </td>
+                                <td>
+                                    <input type="number" name="details[${rowIndex}][harga]" class="form-control harga" value="${item.harga}" readonly style="background-color:#e9ecef;">
+                                </td>
+                                <td>
+                                    <input type="number" name="details[${rowIndex}][subtotal]" class="form-control subtotal-detail" readonly style="background-color:#e9ecef;">
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-danger btn-sm remove-row">-</button>
+                                </td>
+                            `;
                             itemsTable.appendChild(row);
-
                             calculateRow(row);
-
                             rowIndex++;
-
                         });
-
                         calculateTotal();
-
                     });
-
             });
 
-            // remove DN
             selectedDnBox.addEventListener('click', function (e) {
-
                 if (e.target.classList.contains('remove-dn')) {
-
                     const dnId = e.target.dataset.id;
-
                     selectedDN = selectedDN.filter(id => id !== dnId);
-
-                    // tampilkan lagi option di dropdown
                     dnSelect.querySelector(`option[value="${dnId}"]`).style.display = 'block';
-
                     e.target.closest('div').remove();
 
-                    // reset tabel
                     itemsTable.innerHTML = '';
                     rowIndex = 0;
-
-                    // reload semua DN
                     selectedDN.forEach(loadDN);
 
                     if (selectedDN.length === 0) {
                         customerInput.value = '';
                     }
-
                 }
-
             });
 
             function loadDN(dnId) {
-
                 fetch(`/penjualan/delivery-note/${dnId}/details`)
                     .then(res => res.json())
                     .then(data => {
-
                         data.forEach(item => {
-
                             let row = document.createElement('tr');
-
                             row.innerHTML = `
-                                            <td>
-                                                ${item.nama_barang}
-                                                <input type="hidden" name="details[${rowIndex}][barang_id]" value="${item.barang_id}">
-                                                <input type="hidden" name="details[${rowIndex}][order_detail_id]" value="${item.order_detail_id}">
-                                            </td>
-
-                                            <td>
-                                                <input type="number" name="details[${rowIndex}][qty]"
-                                                class="form-control qty" value="${item.qty}" readonly>
-                                            </td>
-
-                                            <td>
-                                                <input type="number" name="details[${rowIndex}][harga]"
-                                                class="form-control harga" value="${item.harga}" readonly>
-                                            </td>
-
-                                            <td>
-                                                <input type="number" name="details[${rowIndex}][subtotal]"
-                                                class="form-control subtotal-detail" readonly>
-                                            </td>
-
-                                            <td>
-                                                <button type="button" class="btn btn-danger btn-sm remove-row">-</button>
-                                            </td>
-                                        `;
-
+                                <td>
+                                    ${item.nama_barang}
+                                    <input type="hidden" name="details[${rowIndex}][barang_id]" value="${item.barang_id}">
+                                    <input type="hidden" name="details[${rowIndex}][order_detail_id]" value="${item.order_detail_id}">
+                                </td>
+                                <td>
+                                    <input type="number" name="details[${rowIndex}][qty]" class="form-control qty" value="${item.qty}" readonly>
+                                </td>
+                                <td>
+                                    <input type="number" name="details[${rowIndex}][harga]" class="form-control harga" value="${item.harga}" readonly>
+                                </td>
+                                <td>
+                                    <input type="number" name="details[${rowIndex}][subtotal]" class="form-control subtotal-detail" readonly>
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-danger btn-sm remove-row">-</button>
+                                </td>
+                            `;
                             itemsTable.appendChild(row);
-
                             calculateRow(row);
-
                             rowIndex++;
-
                         });
-
                         calculateTotal();
-
                     });
-
             }
 
             itemsTable.addEventListener('click', function (e) {
-
                 if (e.target.classList.contains('remove-row')) {
-
                     e.target.closest('tr').remove();
-
                     calculateTotal();
-
                 }
-
             });
 
-            if (ongkirCheckbox) {
-
-                ongkirCheckbox.addEventListener('change', function () {
-
-                    if (this.checked) {
-                        ongkirFields.style.display = 'block';
-                    } else {
-                        ongkirFields.style.display = 'none';
-                    }
-
-                });
-
-            }
-
-            const inputSO = document.getElementById("no_so");
-            const btnToggleSO = document.getElementById("btn-toggle-so");
-
-            if (inputSO && btnToggleSO) {
-                btnToggleSO.addEventListener("click", function () {
-                    if (inputSO.hasAttribute("readonly")) {
-                        inputSO.removeAttribute("readonly");
-                        inputSO.style.backgroundColor = "#fff";
-                        btnToggleSO.classList.remove("btn-outline-secondary");
-                        btnToggleSO.classList.add("btn-danger");
-                        btnToggleSO.innerHTML = '<i class="fas fa-lock"></i>';
-                        inputSO.focus();
-                    } else {
-                        inputSO.setAttribute("readonly", true);
-                        inputSO.style.backgroundColor = "#e9ecef";
-                        btnToggleSO.classList.remove("btn-danger");
-                        btnToggleSO.classList.add("btn-outline-secondary");
-                        btnToggleSO.innerHTML = '<i class="fas fa-pencil-alt"></i>';
-                    }
-                });
-            }
-
-            // === Logic untuk No. Invoice ===
+            // Logic untuk No. Invoice
             const inputInvoice = document.getElementById("no_invoice");
             const btnToggleInvoice = document.getElementById("btn-toggle-invoice");
 
@@ -474,7 +351,6 @@
                     }
                 });
             }
-
         });
     </script>
 @endsection

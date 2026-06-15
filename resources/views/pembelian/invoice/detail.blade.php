@@ -1,17 +1,47 @@
 <h5>Informasi Invoice</h5>
 <table class="table table-bordered">
     <tr>
-        <th>No Invoice</th>
+        <th width="30%">No Invoice</th>
         <td>{{ $invoice->no }}</td>
     </tr>
     <tr>
         <th>Tanggal</th>
-        <td>{{ $invoice->tgl->format('d-m-Y') }}</td>
+        <td>{{ $invoice->tgl ? $invoice->tgl->format('d-m-Y') : '-' }}</td>
     </tr>
     <tr>
         <th>Status</th>
-        <td>{{ $invoice->status }}</td>
+        <td>
+            @if($invoice->status == 'paid')
+                <span class="badge bg-success">Paid</span>
+            @elseif($invoice->status == 'partial')
+                <span class="badge bg-warning text-dark">Partial</span>
+            @else
+                <span class="badge bg-danger">Unpaid</span>
+            @endif
+        </td>
     </tr>
+</table>
+
+<h5>Surat Jalan (Delivery Note)</h5>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th width="30%">Tanggal</th>
+            <th>No Surat Jalan</th>
+        </tr>
+    </thead>
+    <tbody>
+        @forelse($invoice->deliveryNote as $dn)
+            <tr>
+                <td>{{ $dn->tgl ? $dn->tgl->format('d-m-Y') : '-' }}</td>
+                <td>{{ $dn->no }}</td>
+            </tr>
+        @empty
+            <tr>
+                <td colspan="2" class="text-center text-muted">Tidak ada Surat Jalan terkait.</td>
+            </tr>
+        @endforelse
+    </tbody>
 </table>
 
 <hr>
@@ -19,12 +49,12 @@
 <h5>Informasi Order</h5>
 <table class="table table-bordered">
     <tr>
-        <th>No Order</th>
-        <td>{{ $invoice->order->no ?? '-' }}</td>
+        <th width="30%">No Order</th>
+        <td>{{ $invoice->no_so ?? '-' }}</td>
     </tr>
     <tr>
-        <th>Customer</th>
-        <td>{{ $invoice->order->customer->nama_customer ?? '-' }}</td>
+        <th>Supplier</th>
+        <td>{{ $invoice->supplier->nama_supplier ?? '-' }}</td>
     </tr>
 </table>
 
@@ -40,9 +70,9 @@
     <thead>
         <tr>
             <th>Nama Barang</th>
-            <th class="text-end">Qty</th>
-            <th class="text-end">Harga</th>
-            <th class="text-end">Subtotal</th>
+            <th class="text-end" width="15%">Qty</th>
+            <th class="text-end" width="20%">Harga</th>
+            <th class="text-end" width="20%">Subtotal</th>
         </tr>
     </thead>
     <tbody>
@@ -50,15 +80,15 @@
             @php
                 $harga = $detail->orderDetail->harga ?? 0;
                 $qty = $detail->qty ?? 0;
-                $lineTotal = $qty * $harga;
+                $lineTotal = $detail->subtotal ?? ($qty * $harga);
                 $subtotal += $lineTotal;
             @endphp
-        <tr>
-            <td>{{ $detail->orderDetail->barang->nama_barang ?? '-' }}</td>
-            <td class="text-end">{{ number_format($qty, 2) }}</td>
-            <td class="text-end">{{ number_format($harga, 2) }}</td>
-            <td class="text-end">{{ number_format($lineTotal, 2) }}</td>
-        </tr>
+            <tr>
+                <td>{{ $detail->orderDetail->barang->nama_barang ?? '-' }}</td>
+                <td class="text-end">{{ number_format($qty, 2, ',', '.') }}</td>
+                <td class="text-end">{{ number_format($harga, 2, ',', '.') }}</td>
+                <td class="text-end">{{ number_format($lineTotal, 2, ',', '.') }}</td>
+            </tr>
         @endforeach
     </tbody>
 </table>
@@ -66,23 +96,29 @@
 <hr>
 
 @php
-    $ppn = $invoice->ppn;
-    $grandTotal = $invoice->grand_total;
+    $diskon = $invoice->diskon ?? 0;
+    $ppn = $invoice->ppn ?? 0;
+    $grandTotal = $invoice->grand_total ?? ($subtotal - $diskon + $ppn);
 @endphp
 
+<h5>Rincian Pembayaran</h5>
 <table class="table table-bordered">
     <tr>
         <th width="70%">Subtotal (DPP)</th>
-        <td class="text-end">{{ number_format($subtotal, 2) }}</td>
+        <td class="text-end">{{ number_format($subtotal, 2, ',', '.') }}</td>
+    </tr>
+    <tr>
+        <th>Diskon Potongan</th>
+        <td class="text-end text-danger">- {{ number_format($diskon, 2, ',', '.') }}</td>
     </tr>
     <tr>
         <th>Pajak 11%</th>
-        <td class="text-end">{{ number_format($ppn, 2) }}</td>
+        <td class="text-end">{{ number_format($ppn, 2, ',', '.') }}</td>
     </tr>
-    <tr>
+    <tr class="table-dark text-white">
         <th>Grand Total</th>
         <td class="text-end fw-bold">
-            {{ number_format($grandTotal, 2) }}
+            {{ number_format($grandTotal, 2, ',', '.') }}
         </td>
     </tr>
 </table>

@@ -176,30 +176,43 @@
     <br>
 
     @php
+        $subtotal = $invoice->dpp;
+        $diskon = $invoice->diskon;
+        $total = $subtotal-$diskon;
         $ppn = $invoice->ppn;
-        $grandTotal = $invoice->grand_total;
+        $grandTotal = $total+$ppn;
     @endphp
 
     <table class="summary">
 
         <tr>
-            <td width="70%"></td>
-            <td width="30%">
+            <td width="60%"></td>
+            <td width="40%">
 
-                <table>
+                <<table>
+                    <tr>
+                        <td>Diskon</td>
+                        <td>
+                            Rp {{ number_format($diskon, 0, ',', '.') }}
+                        </td>
+                    </tr>
 
                     <tr>
-                        <td>DPP</td>
-                        <td>Rp {{ number_format($subtotal, 0, ',', '.') }}</td>
+                        <td>Dasar Pengenaan Pajak</td>
+                        <td>
+                            Rp {{ number_format($total, 0, ',', '.') }}
+                        </td>
                     </tr>
 
                     <tr>
                         <td>PPN 11%</td>
-                        <td>Rp {{ number_format($ppn, 0, ',', '.') }}</td>
+                        <td>
+                            Rp {{ number_format($ppn, 0, ',', '.') }}
+                        </td>
                     </tr>
 
                     <tr>
-                        <td><b>Total</b></td>
+                        <td><b>Grand Total</b></td>
                         <td>
                             <b>Rp {{ number_format($grandTotal, 0, ',', '.') }}</b>
                         </td>
