@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::table('invoices', function (Blueprint $table) {
             // Menambahkan field diskon dan ongkir setelah kolom grand_total
+            $table->decimal('diskon', 15, 2)->default(0)->after('grand_total');
             $table->decimal('ongkir', 15, 2)->default(0)->after('diskon');
         });
     }
