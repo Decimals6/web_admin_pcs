@@ -3,27 +3,28 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\Sampel;
 use Illuminate\Http\Request;
 
 class CustomerController extends Controller
 {
     public function index(Request $request)
-{
-    $query = \App\Models\Customer::query();
+    {
+        $query = \App\Models\Customer::query();
 
-    if ($request->search) {
-        $query->where(function ($q) use ($request) {
-            $q->where('kode_customer', 'like', '%' . $request->search . '%')
-              ->orWhere('nama_customer', 'like', '%' . $request->search . '%')
-              ->orWhere('email', 'like', '%' . $request->search . '%')
-              ->orWhere('telepon', 'like', '%' . $request->search . '%');
-        });
+        if ($request->search) {
+            $query->where(function ($q) use ($request) {
+                $q->where('kode_customer', 'like', '%' . $request->search . '%')
+                    ->orWhere('nama_customer', 'like', '%' . $request->search . '%')
+                    ->orWhere('email', 'like', '%' . $request->search . '%')
+                    ->orWhere('telepon', 'like', '%' . $request->search . '%');
+            });
+        }
+
+        $customers = $query->paginate(10)->withQueryString();
+
+        return view('customers.index', compact('customers'));
     }
-
-    $customers = $query->paginate(10)->withQueryString();
-
-    return view('customers.index', compact('customers'));
-}
 
 
     public function create()
@@ -68,5 +69,10 @@ class CustomerController extends Controller
 
         return redirect()->route('customers.index')
             ->with('success', 'Customer berhasil dihapus');
+    }
+
+    public function sampels()
+    {
+        return $this->hasMany(Sampel::class, 'customer_id');
     }
 }

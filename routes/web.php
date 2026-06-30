@@ -19,6 +19,8 @@ use App\Http\Controllers\DeliveryNoteController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\KasController;
+use App\Http\Controllers\SampelController;
+use App\Http\Controllers\PenawaranController;
 
 /*
 |--------------------------------------------------------------------------
@@ -93,6 +95,32 @@ Route::get(
     ->name('pembelian.purchase-order.detail');
 
 Route::get('/po/{id}', [OrdersController::class, 'showDetailPO']);
+
+/*
+|--------------------------------------------------------------------------
+| Penawaran
+|--------------------------------------------------------------------------
+*/
+
+Route::prefix('penjualan/penawaran')
+    ->name('penjualan.penawaran.')
+    ->group(function () {
+        Route::get('/', [PenawaranController::class, 'index'])->name('index');
+        Route::get('/create', [PenawaranController::class, 'create'])->name('create');
+        Route::post('/store', [PenawaranController::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [PenawaranController::class, 'edit'])->name('edit');
+        Route::put('/{id}/update', [PenawaranController::class, 'update'])->name('update');
+        Route::delete('/{id}/destroy', [PenawaranController::class, 'destroy'])->name('destroy');
+        Route::get('/{id}/print', [PenawaranController::class, 'print'])->name('print');
+    });
+
+// Detail (dipakai untuk modal AJAX, sama pola seperti SO)
+Route::get(
+    '/penjualan/penawaran/{id}/detail',
+    [PenawaranController::class, 'detailPenawaran']
+)
+    ->name('penjualan.penawaran.detail');
+Route::get('/penawaran/{id}', [PenawaranController::class, 'showDetailPenawaran']);
 
 /*
 |--------------------------------------------------------------------------
@@ -386,5 +414,25 @@ Route::get(
     '/penjualan/delivery-note/{id}/details',
     [InvoiceController::class, 'getDeliveryNoteDetail']
 );
+
+/*
+|--------------------------------------------------------------------------
+|Inventory
+|--------------------------------------------------------------------------
+*/
+Route::prefix('gudang/sampel')
+    ->name('gudang.sampel.')
+    ->group(function () {
+        Route::get('/', [SampelController::class, 'index'])->name('index');
+        Route::get('/create', [SampelController::class, 'create'])->name('create');
+        Route::post('/store', [SampelController::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [SampelController::class, 'edit'])->name('edit');
+        Route::put('/{id}/update', [SampelController::class, 'update'])->name('update');
+
+        // Jalur AJAX untuk isi modal detail html
+        Route::get('/{id}/html-detail', [SampelController::class, 'htmlDetail'])->name('html-detail');
+    });
+Route::get('/sampel/{id}/print', [SampelController::class, 'print'])
+    ->name('sampel.print');
 
 require __DIR__ . '/auth.php';

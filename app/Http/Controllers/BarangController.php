@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Barang;
 use App\Models\Supplier;
+use App\Models\Sampel;
 use Illuminate\Http\Request;
 
 class BarangController extends Controller
@@ -14,19 +15,19 @@ class BarangController extends Controller
 
     public function index(Request $request)
     {
-    // $barangs = Barang::with('supplier')->get();
-    $query = Barang::with('supplier');
+        // $barangs = Barang::with('supplier')->get();
+        $query = Barang::with('supplier');
 
-    if ($request->search) {
-        $query->where(function ($q) use ($request) {
-            $q->where('nama_barang', 'like', '%' . $request->search . '%')
-              ->orWhere('kode_barang', 'like', '%' . $request->search . '%');
-        });
-    }
+        if ($request->search) {
+            $query->where(function ($q) use ($request) {
+                $q->where('nama_barang', 'like', '%' . $request->search . '%')
+                    ->orWhere('kode_barang', 'like', '%' . $request->search . '%');
+            });
+        }
 
-    $barangs = $query->paginate(10)->withQueryString();
+        $barangs = $query->paginate(10)->withQueryString();
 
-    return view('barangs.index', compact('barangs'));
+        return view('barangs.index', compact('barangs'));
     }
 
     /**
@@ -36,31 +37,31 @@ class BarangController extends Controller
     {
         //
         $suppliers = Supplier::all();
-    return view('barangs.create', compact('suppliers'));
+        return view('barangs.create', compact('suppliers'));
     }
 
     /**
      * Store a newly created resource in storage.
      */
-   public function store(Request $request)
-{
-    $request->validate([
-        'kode_barang'  => 'required|unique:barangs',
-        'nama_barang'  => 'required',
-        'supplier_id'  => 'required|exists:suppliers,id',
-        'stok'         => 'required|integer|min:0',
-    ]);
+    public function store(Request $request)
+    {
+        $request->validate([
+            'kode_barang' => 'required|unique:barangs',
+            'nama_barang' => 'required',
+            'supplier_id' => 'required|exists:suppliers,id',
+            'stok' => 'required|integer|min:0',
+        ]);
 
-    Barang::create([
-        'kode_barang' => $request->kode_barang,
-        'nama_barang' => $request->nama_barang,
-        'supplier_id' => $request->supplier_id,
-        'stok'        => $request->stok,
-    ]);
+        Barang::create([
+            'kode_barang' => $request->kode_barang,
+            'nama_barang' => $request->nama_barang,
+            'supplier_id' => $request->supplier_id,
+            'stok' => $request->stok,
+        ]);
 
-    return redirect()->route('barang.index')
-        ->with('success', 'Barang berhasil ditambahkan');
-}
+        return redirect()->route('barang.index')
+            ->with('success', 'Barang berhasil ditambahkan');
+    }
     /**
      * Display the specified resource.
      */
@@ -74,8 +75,8 @@ class BarangController extends Controller
      */
     public function edit(Barang $barang)
     {
-    $suppliers = Supplier::all();
-    return view('barangs.edit', compact('barang','suppliers'));
+        $suppliers = Supplier::all();
+        return view('barangs.edit', compact('barang', 'suppliers'));
     }
 
 
@@ -84,14 +85,14 @@ class BarangController extends Controller
      */
     public function update(Request $request, Barang $barang)
     {
-    $request->validate([
-        'nama_barang' => 'required',
-    ]);
+        $request->validate([
+            'nama_barang' => 'required',
+        ]);
 
-    $barang->update($request->all());
+        $barang->update($request->all());
 
-    return redirect()->route('barangs.index')
-        ->with('success', 'Barang berhasil diupdate');
+        return redirect()->route('barangs.index')
+            ->with('success', 'Barang berhasil diupdate');
     }
 
     /**
@@ -99,10 +100,16 @@ class BarangController extends Controller
      */
     public function destroy(Barang $barang)
     {
-    $barang->delete();
+        $barang->delete();
 
-    return redirect()->route('barangs.index')
-        ->with('success', 'Barang berhasil dihapus');
+        return redirect()->route('barangs.index')
+            ->with('success', 'Barang berhasil dihapus');
+    }
+    public function sampels()
+    {
+        return $this->belongsToMany(Sampel::class, 'barang_sampel', 'barang_id', 'sampel_id')
+            ->withPivot('jumlah')
+            ->withTimestamps();
     }
 
 }

@@ -39,6 +39,12 @@ class Barang extends Model
     {
         return $this->hasMany(BarangHarga::class)->orderBy('min_qty');
     }
+    public function sampels()
+    {
+        return $this->belongsToMany(Sampel::class, 'barang_sampel', 'barang_id', 'sampel_id')
+                    ->withPivot('jumlah')
+                    ->withTimestamps();
+    }
 
 }
 

@@ -105,11 +105,13 @@
                         </li>
 
                         {{-- Inventory --}}
-                        <li class="nav-item has-treeview
-                    {{ request()->is('users*') || request()->is('barang*') ? 'menu-open' : '' }}">
+                        <li
+                            class="nav-item has-treeview 
+                                {{ request()->is('users*') || request()->is('barang*') || request()->is('gudang/sampel*') || request()->is('mutasi-barangs*') ? 'menu-open' : '' }}">
 
-                            <a href="#" class="nav-link
-                        {{ request()->is('users*') || request()->is('barang*') ? 'active' : '' }}">
+                            <a href="#"
+                                class="nav-link 
+                                {{ request()->is('users*') || request()->is('barang*') || request()->is('gudang/sampel*') || request()->is('mutasi-barangs*') ? 'active' : '' }}">
                                 <p>
                                     Inventory
                                     <i class="right fas fa-angle-left"></i>
@@ -118,11 +120,11 @@
 
                             <ul class="nav nav-treeview">
                                 <li class="nav-item">
-                                    {{-- <a href="{{ route('incoming-barangs.index') }}"
-                                        class="nav-link {{ request()->is('incoming-barangs*') ? 'active' : '' }}">
-                                        <i class="nav-icon fas fa-download"></i>
-                                        <p>Incoming Barang</p>
-                                    </a> --}}
+                                    <a href="{{ route('gudang.sampel.index') }}"
+                                        class="nav-link {{ request()->is('gudang/sampel*') ? 'active' : '' }}">
+                                        <i class="nav-icon fas fa-box-open"></i> {{-- Icon diganti jadi Box Terbuka --}}
+                                        <p>Sampel Barang</p>
+                                    </a>
                                 </li>
                                 <li class="nav-item">
                                     <a href="{{ route('mutasi-barangs.index') }}"
@@ -133,20 +135,6 @@
                                 </li>
                             </ul>
                         </li>
-
-                        {{-- Register Surat Jalan --}}
-                        {{-- <li class="nav-item {{ request()->is('penjualan/surat-jalan*') ? 'menu-open' : '' }}">
-                            <a href="{{ route('surat-jalan.index') }}"
-                                class="nav-link {{ request()->is('penjualan/surat-jalan*') ? 'active' : '' }}">
-                                <p>Register Surat Jalan</p>
-                            </a>
-                        </li>
-                        <li class="nav-item {{ request()->is('penjualan/faktur*') ? 'menu-open' : '' }}">
-                            <a href="{{ route('faktur.index') }}"
-                                class="nav-link {{ request()->is('penjualan/faktur*') ? 'active' : '' }}">
-                                <p>Faktur Penjualan</p>
-                            </a>
-                        </li> --}}
 
                         <!-- Pembelian -->
                         <li class="nav-item has-treeview {{ request()->is('pembelian*') ? 'menu-open' : '' }}">
@@ -204,6 +192,14 @@
                             </a>
 
                             <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="{{ route('penjualan.penawaran.index') }}"
+                                        class="nav-link {{ request()->is('penjualan/penawaran*') ? 'active' : '' }}">
+                                        <i class="nav-icon fas fa-solid fa-file-signature"></i>
+                                        <p>Penawaran</p>
+                                    </a>
+                                </li>
+
                                 <li class="nav-item">
                                     <a href="{{ route('penjualan.sales-order.index') }}"
                                         class="nav-link {{ request()->is('penjualan/sales-order*') ? 'active' : '' }}">
