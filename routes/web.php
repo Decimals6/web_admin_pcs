@@ -182,8 +182,8 @@ Route::prefix('penjualan/delivery-note')
         Route::post('/', [DeliveryNoteController::class, 'store'])
             ->name('store')
             ->defaults('type', 'keluar');
-        Route::get('/{deliveryNote}/edit', [DeliveryNoteController::class, 'edit'])->name('edit');
-        Route::put('/{deliveryNote}', [DeliveryNoteController::class, 'update'])->name('update');
+        Route::get('/{deliveryNote}/edit', [DeliveryNoteController::class, 'editKeluar'])->name('edit');
+        Route::put('/{deliveryNote}', [DeliveryNoteController::class, 'updateKeluar'])->name('update');
         Route::delete('/{deliveryNote}', [DeliveryNoteController::class, 'destroy'])->name('destroy');
         Route::get('/{deliveryNote}', [DeliveryNoteController::class, 'show'])->name('show');
     });

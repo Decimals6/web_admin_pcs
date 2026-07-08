@@ -240,6 +240,20 @@ class DeliveryNoteController extends Controller
         return view('pembelian.delivery_note.edit', compact('deliveryNote', 'orders'));
     }
 
+    public function editKeluar(DeliveryNote $deliveryNote)
+    {
+        // Mengambil semua order aktif untuk dropdown PO
+        $orders = Orders::where('type', 'sales')
+            ->where('status', '!=', 'draft')
+            ->with('details.barang', 'customer')
+            ->get();
+
+        // Load relasi detail barang yang ada di dalam Surat Jalan ini beserta barangnya
+        $deliveryNote->load('details.orderDetail.barang');
+
+        return view('penjualan.delivery_note.edit', compact('deliveryNote', 'orders'));
+    }
+
     // ===========================
     // SHOW
     // ===========================
@@ -333,6 +347,83 @@ class DeliveryNoteController extends Controller
         }
 
         return redirect()->route('pembelian.delivery-note.index')
+            ->with('success', 'Delivery Note berhasil diperbarui.');
+    }
+
+    public function updateKeluar(Request $request, DeliveryNote $deliveryNote)
+    {
+        $request->validate([
+            'no' => 'required|unique:delivery_notes,no,' . $deliveryNote->id, // Abaikan pengecekan unik untuk ID sendiri
+            'tgl' => 'required|date',
+            'alamat_kirim' => 'required',
+            'order_id' => 'nullable|exists:orders,id',
+            'details.*.order_detail_id' => 'required|exists:order_details,id',
+            'details.*.qty' => 'required|integer|min:1',
+            'details.*.keterangan' => 'nullable|string'
+        ]);
+
+        // === STEP 1: KEMBALIKAN/RESET STOK DAN MUTASI LAMA ===
+        foreach ($deliveryNote->details as $oldDetail) {
+            $orderDetail = $oldDetail->orderDetail;
+
+            // Kurangi qty_sent lama
+            $orderDetail->qty_sent -= $oldDetail->qty;
+            $orderDetail->save();
+
+            // Kembalikan stok barang lama (karena ini tipe 'masuk', kita kurangi lagi stoknya)
+            $barang = $orderDetail->barang;
+            $barang->stok -= $oldDetail->qty;
+            $barang->save();
+        }
+
+        // Hapus mutasi barang lama dan baris detail lama yang terikat dengan DN ini
+        MutasiBarang::where('tgl_mutasi', $deliveryNote->tgl)
+            ->whereIn('barang_id', $deliveryNote->details->pluck('orderDetail.barang_id'))
+            ->delete();
+
+        $deliveryNote->details()->delete();
+
+        // === STEP 2: UPDATE DATA INDUK DELIVERY NOTE ===
+        $deliveryNote->update([
+            'no' => $request->no,
+            'tgl' => $request->tgl,
+            'order_id' => $request->order_id,
+            'keterangan' => $request->keterangan,
+            'alamat_kirim' => $request->alamat_kirim
+        ]);
+
+        // === STEP 3: MASUKKAN DATA BARU (Sama persis logikanya dengan STORE) ===
+        foreach ($request->details as $item) {
+            $orderDetail = OrderDetail::findOrFail($item['order_detail_id']);
+
+            // Buat detail baru
+            DeliveryNoteDetail::create([
+                'delivery_note_id' => $deliveryNote->id,
+                'order_detail_id' => $item['order_detail_id'],
+                'qty' => $item['qty'],
+                'keterangan' => $item['keterangan'] ?? null
+            ]);
+
+            // Catat mutasi baru
+            MutasiBarang::create([
+                'tgl_mutasi' => $deliveryNote->tgl,
+                'barang_id' => $orderDetail->barang_id,
+                'qty' => $item['qty'],
+                'tipe' => 'IN', // Fokus pembelian (masuk)
+                'keterangan' => 'Update Surat Jalan ' . $deliveryNote->no
+            ]);
+
+            // Update qty_sent baru
+            $orderDetail->qty_sent += $item['qty'];
+            $orderDetail->save();
+
+            // Update stok barang baru
+            $barang = $orderDetail->barang;
+            $barang->stok += $item['qty'];
+            $barang->save();
+        }
+
+        return redirect()->route('penjualan.delivery-note.index')
             ->with('success', 'Delivery Note berhasil diperbarui.');
     }
 
