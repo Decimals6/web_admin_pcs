@@ -8,10 +8,15 @@
         <div class="card-body">
             <div class="row mb-3">
                 <div class="col-md-3">
-                    <label>No. Invoice</label>
-                    <input type="text" name="no" class="form-control"
-                        value="{{ generateDocumentNumber('delivery_notes', 'PCS-SJ', 'keluar') }}"
-                        style="background-color: #e9ecef;" readonly>
+                    <label>No. Surat Jalan</label>
+                    <div class="input-group">
+                        <input type="text" name="no" id="noInvoice" class="form-control"
+                            value="{{ generateDocumentNumber('delivery_notes', 'PCS-SJ', 'keluar') }}"
+                            style="background-color: #e9ecef;" readonly required>
+                        <button type="button" class="btn btn-outline-secondary" id="btnEditNo" title="Edit nomor manual">
+                            <i class="fa fa-pencil-alt" id="iconEditNo"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="col-md-3">
@@ -168,6 +173,31 @@
                         });
                     })
                     .catch(err => console.log(err));
+            });
+
+            // Perbaikan: No. Invoice defaultnya locked (hasil auto-generate),
+            // tapi bisa dibuka manual lewat tombol pensil kalau memang perlu diganti tangan.
+            const noInvoiceInput = document.getElementById('noInvoice');
+            const btnEditNo = document.getElementById('btnEditNo');
+            const iconEditNo = document.getElementById('iconEditNo');
+
+            btnEditNo.addEventListener('click', function () {
+                const isLocked = noInvoiceInput.hasAttribute('readonly');
+
+                if (isLocked) {
+                    // Buka kunci
+                    noInvoiceInput.removeAttribute('readonly');
+                    noInvoiceInput.style.backgroundColor = '#fff';
+                    noInvoiceInput.focus();
+                    iconEditNo.classList.remove('fa-pencil-alt');
+                    iconEditNo.classList.add('fa-lock-open');
+                } else {
+                    // Kunci lagi
+                    noInvoiceInput.setAttribute('readonly', true);
+                    noInvoiceInput.style.backgroundColor = '#e9ecef';
+                    iconEditNo.classList.remove('fa-lock-open');
+                    iconEditNo.classList.add('fa-pencil-alt');
+                }
             });
         });
     </script>
