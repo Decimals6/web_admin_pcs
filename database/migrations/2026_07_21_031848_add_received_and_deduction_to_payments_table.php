@@ -1,0 +1,36 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('payments', function (Blueprint $table) {
+            $table->decimal('received', 18, 2)
+                ->nullable()
+                ->after('total');
+
+            $table->decimal('deduction', 18, 2)
+                ->default(0)
+                ->after('received');
+
+            $table->string('deduction_note')
+                ->nullable()
+                ->after('deduction');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('payments', function (Blueprint $table) {
+            $table->dropColumn([
+                'received',
+                'deduction',
+                'deduction_note'
+            ]);
+        });
+    }
+};

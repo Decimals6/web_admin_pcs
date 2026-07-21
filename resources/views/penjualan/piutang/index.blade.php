@@ -109,14 +109,41 @@
                 <input type="hidden" name="customer_id" id="customer_id_input">
 
                 <div class="row">
+
                     <div class="col-md-3">
                         <label>Tanggal Pembayaran</label>
                         <input type="date" name="tgl" value="{{ date('Y-m-d') }}" class="form-control">
                     </div>
 
                     <div class="col-md-3">
-                        <label>Total Bayar</label>
-                        <input type="number" name="jumlah_bayar" class="form-control" required>
+                        <label>Total Pelunasan</label>
+                        <input type="number" name="jumlah_bayar"  step="0.01" class="form-control" required>
+                        <small class="text-muted">
+                            Nominal yang melunasi piutang
+                        </small>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label>Diterima</label>
+                        <input type="number" name="received"  step="0.01" class="form-control">
+                        <small class="text-muted">
+                            Nominal masuk rekening
+                        </small>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label>Potongan</label>
+                        <input type="number" name="deduction"  step="0.01" class="form-control" value="0">
+                    </div>
+
+                </div>
+
+                <div class="row mt-2">
+
+                    <div class="col-md-6">
+                        <label>Keterangan Potongan</label>
+                        <input type="text" name="deduction_note" class="form-control"
+                            placeholder="Admin Transfer / QRIS / dll">
                     </div>
 
                     <div class="col-md-3">
@@ -133,6 +160,7 @@
                             Bayar
                         </button>
                     </div>
+
                 </div>
             </form>
 
@@ -199,6 +227,21 @@
             });
         }
 
+        const total = document.querySelector('[name=jumlah_bayar]');
+        const received = document.querySelector('[name=received]');
+        const deduction = document.querySelector('[name=deduction]');
+
+        function hitungReceived() {
+
+            let t = parseFloat(total.value) || 0;
+            let d = parseFloat(deduction.value) || 0;
+
+            received.value = Math.max(t - d, 0);
+        }
+
+        total.addEventListener('input', hitungReceived);
+        deduction.addEventListener('input', hitungReceived);
+
         document.querySelectorAll('.customer-row').forEach(row => {
             row.addEventListener('click', function () {
 
@@ -228,20 +271,20 @@
 
                         data.forEach((item, index) => {
                             tbody.innerHTML += `
-                            <tr class="invoice-row"
-                                data-sisa="${item.sisa.replace(/\./g, '')}">
-                                <td>${index + 1}</td>
-                                <td>${item.tgl}</td>
-                                <td>${item.no}</td>
-                                <td>${item.no_so ?? '-'}</td>
-                                <td>${item.jatuh_tempo}</td>
-                                <td>${item.total}</td>
-                                <td>${item.paid}</td>
-                                <td style="color:red;font-weight:bold;">
-                                    ${item.sisa}
-                                </td>
-                            </tr>
-                        `;
+                                    <tr class="invoice-row"
+                                        data-sisa="${item.sisa.replace(/\./g, '')}">
+                                        <td>${index + 1}</td>
+                                        <td>${item.tgl}</td>
+                                        <td>${item.no}</td>
+                                        <td>${item.no_so ?? '-'}</td>
+                                        <td>${item.jatuh_tempo}</td>
+                                        <td>${item.total}</td>
+                                        <td>${item.paid}</td>
+                                        <td style="color:red;font-weight:bold;">
+                                            ${item.sisa}
+                                        </td>
+                                    </tr>
+                                `;
                         });
 
                         activateInvoiceClick();

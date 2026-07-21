@@ -749,8 +749,24 @@ class InvoiceController extends Controller
         $request->validate([
             'customer_id' => 'required|exists:customers,id',
             'jumlah_bayar' => 'required|numeric|min:1',
+            'received' => 'nullable|numeric|min:0',
+            'deduction' => 'nullable|numeric|min:0',
+            'deduction_note' => 'nullable|string|max:255',
             'metode' => 'required'
         ]);
+
+        $deduction = $request->deduction ?? 0;
+        $received = $request->received;
+
+        if ($received === null || $received === '') {
+            $received = $request->jumlah_bayar - $deduction;
+        }
+
+        if (($received + $deduction) != $request->jumlah_bayar) {
+            return back()->withErrors(
+                'Nominal diterima + potongan harus sama dengan total pelunasan.'
+            );
+        }
 
         DB::beginTransaction();
 
@@ -786,6 +802,9 @@ class InvoiceController extends Controller
 
             $payment = Payment::create([
                 'total' => $request->jumlah_bayar,
+                'received' => $received,
+                'deduction' => $deduction,
+                'deduction_note' => $request->deduction_note,
                 'keterangan' => 'Pelunasan Piutang - ' . $request->metode,
                 'type' => 'in',
                 'customer_id' => $customerId,

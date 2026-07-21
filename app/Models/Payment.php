@@ -8,6 +8,9 @@ class Payment extends Model
 {
     protected $fillable = [
         'total',
+        'received',
+        'deduction',
+        'deduction_note',
         'keterangan',
         'type',
         'customer_id',
