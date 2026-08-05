@@ -1,5 +1,13 @@
 <table border="1">
-    <div><h2>LAPORAN PEMBELIAN</h2></div>
+    <div>
+        <h2>LAPORAN PEMBELIAN</h2>
+    </div>
+
+    @php
+        $totalDpp = $invoices->sum('dpp');
+        $totalPpn = $invoices->sum('ppn');
+        $totalPembelian = $invoices->sum('grand_total');
+    @endphp
     <thead style="background-color:#343a40;color:white;font-weight:bold;">
         <tr>
             <th>No</th>
@@ -16,45 +24,54 @@
     </thead>
     <tbody>
         @foreach($invoices as $i => $inv)
-        @php
-    $paid = $inv->paymentDetails->sum('subtotal');
-    $sisa = $inv->grand_total - $paid;
+            @php
+                $paid = $inv->paymentDetails->sum('subtotal');
+                $sisa = $inv->grand_total - $paid;
 
-    if ($paid == 0) {
-        $color = 'red';
-    } elseif ($sisa > 0) {
-        $color = 'orange';
-    } else {
-        $color = 'green';
-    }
+                if ($paid == 0) {
+                    $color = 'red';
+                } elseif ($sisa > 0) {
+                    $color = 'orange';
+                } else {
+                    $color = 'green';
+                }
 
-    $lastPaymentDetail = $inv->paymentDetails
-        ->sortByDesc(fn($pd) => $pd->payment->created_at ?? null)
-        ->first();
+                $lastPaymentDetail = $inv->paymentDetails
+                    ->sortByDesc(fn($pd) => $pd->payment->created_at ?? null)
+                    ->first();
 
-    $ket = $lastPaymentDetail?->payment?->keterangan ?? '';
+                $ket = $lastPaymentDetail?->payment?->keterangan ?? '';
 
-    if (str_contains($ket, 'TF')) {
-        $metode = 'Transfer';
-    } elseif (str_contains($ket, 'Cash')) {
-        $metode = 'Cash';
-    } else {
-        $metode = '-';
-    }
+                if (str_contains($ket, 'TF')) {
+                    $metode = 'Transfer';
+                } elseif (str_contains($ket, 'Cash')) {
+                    $metode = 'Cash';
+                } else {
+                    $metode = '-';
+                }
 
-    $tglBayar = $lastPaymentDetail?->payment?->created_at?->format('d-m-Y') ?? '-';
-@endphp
-        <tr style="color: {{ $color }}; font-weight:bold;">
-            <td>{{ $i+1 }}</td>
-            <td>{{ $inv->no }}</td>
-            <td>{{ $inv->tgl->format('d-m-Y') }}</td>
-            <td>{{ $inv->supplier->nama_supplier ?? '-' }}</td>
-            <td>{{ number_format($inv->dpp,0,',','.') }}</td>
-            <td>{{ number_format($inv->ppn,0,',','.') }}</td>
-            <td>{{ number_format($inv->grand_total,0,',','.') }}</td>
-            <td>{{ $metode }}</td>
-            <td>{{ $tglBayar }}</td>
-        </tr>
+                $tglBayar = $lastPaymentDetail?->payment?->created_at?->format('d-m-Y') ?? '-';
+            @endphp
+            <tr style="color: {{ $color }}; font-weight:bold;">
+                <td>{{ $i + 1 }}</td>
+                <td>{{ $inv->no }}</td>
+                <td>{{ $inv->tgl->format('d-m-Y') }}</td>
+                <td>{{ $inv->supplier->nama_supplier ?? '-' }}</td>
+                <td>{{ number_format($inv->dpp, 0, ',', '.') }}</td>
+                <td>{{ number_format($inv->ppn, 0, ',', '.') }}</td>
+                <td>{{ number_format($inv->grand_total, 0, ',', '.') }}</td>
+                <td>{{ $metode }}</td>
+                <td>{{ $tglBayar }}</td>
+            </tr>
         @endforeach
     </tbody>
+    <tfoot>
+        <tr style="background:#e9ecef; font-weight:bold;">
+            <td colspan="4" align="right">TOTAL PEMBELIAN</td>
+            <td>{{ number_format($totalDpp, 0, ',', '.') }}</td>
+            <td>{{ number_format($totalPpn, 0, ',', '.') }}</td>
+            <td>{{ number_format($totalPembelian, 0, ',', '.') }}</td>
+            <td colspan="2"></td>
+        </tr>
+    </tfoot>
 </table>

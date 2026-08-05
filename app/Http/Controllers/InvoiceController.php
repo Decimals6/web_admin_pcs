@@ -358,6 +358,35 @@ class InvoiceController extends Controller
             $headers
         );
     }
+
+    public function exportPenjualanpdf(Request $request)
+    {
+        $query = Invoice::with('customer', 'paymentDetails.payment')
+            ->where('type', Invoice::TYPE_KELUAR);
+
+        if ($request->filled('from') && $request->filled('to')) {
+            $query->whereBetween('tgl', [$request->from, $request->to]);
+        }
+
+        if ($request->filled('customer_id')) {
+            $query->where('customer_id', $request->customer_id);
+        }
+
+        $invoices = $query->get();
+
+        $pdf = Pdf::loadView(
+            'penjualan.data-penjualan.pdf',
+            compact('invoices')
+        );
+
+        // Landscape supaya tabel muat
+        $pdf->setPaper('a4', 'landscape');
+
+        // return $pdf->download('laporan_penjualan.pdf');
+        // atau kalau ingin langsung tampil di browser:
+        return $pdf->stream('laporan_penjualan.pdf');
+    }
+
     public function printPenjualan(Request $request)
     {
         $query = Invoice::with('customer', 'paymentDetails.payment')
@@ -413,6 +442,34 @@ class InvoiceController extends Controller
             200,
             $headers
         );
+    }
+
+    public function exportPembelianpdf(Request $request)
+    {
+        $query = Invoice::with('customer', 'paymentDetails.payment')
+            ->where('type', Invoice::TYPE_MASUK);
+
+        if ($request->filled('from') && $request->filled('to')) {
+            $query->whereBetween('tgl', [$request->from, $request->to]);
+        }
+
+        if ($request->filled('supplier_id')) {
+            $query->where('supplier_id', $request->supplier_id);
+        }
+
+        $invoices = $query->get();
+
+        $pdf = Pdf::loadView(
+            'pembelian.data-pembelian.pdf',
+            compact('invoices')
+        );
+
+        // Landscape supaya tabel muat
+        $pdf->setPaper('a4', 'landscape');
+
+        // return $pdf->download('laporan_penjualan.pdf');
+        // atau kalau ingin langsung tampil di browser:
+        return $pdf->stream('laporan_pembelian.pdf');
     }
 
     public function printPembelian(Request $request)
