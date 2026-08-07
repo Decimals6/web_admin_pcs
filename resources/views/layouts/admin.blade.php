@@ -239,6 +239,14 @@
                                     </a>
                                 </li>
 
+                                <li class="nav-item">
+                                    <a href="{{ route('penjualan.payment.index') }}"
+                                        class="nav-link {{ request()->is('penjualan/piutang*') ? 'active' : '' }}">
+                                        <i class="nav-icon fas fa-hand-holding-usd"></i>
+                                        <p>Pembayaran Customer</p>
+                                    </a>
+                                </li>
+
                             </ul>
                         </li>
 

@@ -265,6 +265,14 @@ Route::get('/penjualan/data-penjualan/print', [InvoiceController::class, 'printP
 Route::get('/penjualan/data-penjualan/print', [InvoiceController::class, 'printPenjualan'])->name('penjualan.data-penjualan.print');
 Route::get('/api/piutang/{id}/payments', [InvoiceController::class, 'getPaymentsPiutang']);
 
+//payment penjualan
+Route::get('/penjualan/payment', [PaymentController::class, 'index'])
+    ->name('penjualan.payment.index');
+
+Route::get('/penjualan/payment/{payment}', [PaymentController::class, 'show'])
+    ->name('penjualan.payment.show');
+
+
 /*
 |--------------------------------------------------------------------------
 | HUTANG
