@@ -115,6 +115,10 @@
         <th>Pajak 11%</th>
         <td class="text-end">{{ number_format($ppn, 2, ',', '.') }}</td>
     </tr>
+    <tr>
+        <th>Nominal Ongkir</th>
+        <td class="text-end">{{ number_format($invoice->ongkir, 2, ',', '.') }}</td>
+    </tr>
     <tr class="table-dark text-white">
         <th>Grand Total</th>
         <td class="text-end fw-bold">

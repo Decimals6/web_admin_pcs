@@ -8,6 +8,17 @@
 
         <form action="{{ route('pembelian.invoice.store') }}" method="POST" id="invoiceForm">
             @csrf
+            @if ($errors->any())
+                <div class="alert alert-danger">
+                    <strong>Error:</strong>
+                    <ul>
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
             <div class="card-body">
 
                 <div class="row mb-2">
@@ -50,11 +61,13 @@
                         <input type="date" name="jatuh_tempo" class="form-control" value="{{ date('Y-m-d') }}" required>
                     </div>
                 </div>
+
                 <div class="mt-3">
                     <div id="selected_dn" class="border rounded p-2 bg-light" style="min-height:40px;">
                         <small class="text-muted">Delivery Note dipilih akan muncul di sini</small>
                     </div>
                 </div>
+
                 <hr>
                 <h5>Detail Barang</h5>
                 <table class="table table-bordered" id="items-table">
@@ -82,6 +95,10 @@
                         </select>
                     </div>
                     <div class="col-md-3">
+                        <label>Nominal Ongkir</label>
+                        <input type="number" name="ongkir" id="ongkir" class="form-control" value="0" min="0" step="0.01">
+                    </div>
+                    <div class="col-md-3">
                         <label>Diskon Potongan</label>
                         <input type="number" name="diskon" id="diskon" class="form-control" value="0" min="0" step="0.01">
                     </div>
@@ -99,7 +116,7 @@
                             style="background-color:#e9ecef;">
                     </div>
                     <div class="col-md-3">
-                        <label>Total</label>
+                        <label>Grand Total</label>
                         <input type="number" name="total" id="total" class="form-control" readonly
                             style="background-color:#e9ecef;">
                     </div>
@@ -131,6 +148,7 @@
             const selectedDnBox = document.getElementById('selected_dn');
             const ppnMode = document.getElementById('ppn_mode');
             const diskonInput = document.getElementById('diskon');
+            const ongkirInput = document.getElementById('ongkir');
 
             let rowIndex = 0;
             let selectedDN = [];
@@ -150,28 +168,30 @@
                 });
 
                 let diskon = parseFloat(diskonInput.value) || 0;
+                let ongkir = parseFloat(ongkirInput.value) || 0;
 
                 // DPP dipotong diskon terlebih dahulu sebelum kena Pajak
                 let subtotalSetelahDiskon = dpp - diskon;
                 if (subtotalSetelahDiskon < 0) subtotalSetelahDiskon = 0;
 
-                let mode = ppnMode.value;
+                let mode = ppnMode ? ppnMode.value : 'ppn';
                 let pajak = 0;
 
                 if (mode === 'ppn') {
                     pajak = subtotalSetelahDiskon * 0.11;
                 }
 
-                // Hitung grand total (tanpa ongkir karena default 0)
-                let total = subtotalSetelahDiskon + pajak;
+                // Rumus: Subtotal setelah diskon + Pajak + Ongkir
+                let grandTotal = subtotalSetelahDiskon + pajak + ongkir;
 
                 document.getElementById('dpp').value = dpp.toFixed(2);
                 document.getElementById('pajak').value = pajak.toFixed(2);
-                document.getElementById('total').value = total.toFixed(2);
+                document.getElementById('total').value = grandTotal.toFixed(2);
             }
 
-            ppnMode.addEventListener('change', calculateTotal);
+            if (ppnMode) ppnMode.addEventListener('change', calculateTotal);
             if (diskonInput) diskonInput.addEventListener('input', calculateTotal);
+            if (ongkirInput) ongkirInput.addEventListener('input', calculateTotal);
 
             addDnBtn.addEventListener('click', function () {
                 const dnId = dnSelect.value;
@@ -203,11 +223,11 @@
                 let div = document.createElement('div');
                 div.className = 'd-flex justify-content-between align-items-center bg-white border rounded px-2 py-1 mb-1';
                 div.innerHTML = `
-                        <span>${dnText}</span>
-                        <button type="button" class="btn btn-sm btn-danger remove-dn" data-id="${dnId}">
-                            Hapus
-                        </button>
-                    `;
+                    <span>${dnText}</span>
+                    <button type="button" class="btn btn-sm btn-danger remove-dn" data-id="${dnId}">
+                        Hapus
+                    </button>
+                `;
                 selectedDnBox.appendChild(div);
                 dnSelect.value = "";
 
@@ -221,32 +241,32 @@
                         if (data.length === 0) return;
 
                         if (!supplierInput.value) {
-                            supplierInput.value = data[0].supplier_name;
+                            supplierInput.value = data[0].supplier_name || '';
                         }
 
                         data.forEach(item => {
                             let row = document.createElement('tr');
                             row.innerHTML = `
-                                    <td>
-                                        ${item.nama_barang}
-                                        <input type="hidden" name="details[${rowIndex}][barang_id]" value="${item.barang_id}">
-                                        <input type="hidden" name="details[${rowIndex}][order_detail_id]" value="${item.order_detail_id}">
-                                    </td>
-                                    <td>
-                                        <input type="number" name="details[${rowIndex}][qty]" class="form-control qty" value="${item.qty}" readonly>
-                                    </td>
-                                    <td>
-                                        <input type="number" name="details[${rowIndex}][harga]" class="form-control harga"
-                                        value="${item.harga}" readonly style="background-color:#e9ecef;">
-                                    </td>
-                                    <td>
-                                        <input type="number" name="details[${rowIndex}][subtotal]"
-                                        class="form-control subtotal-detail" readonly style="background-color:#e9ecef;">
-                                    </td>
-                                    <td>
-                                        <button type="button" class="btn btn-danger btn-sm remove-row">-</button>
-                                    </td>
-                                `;
+                                <td>
+                                    ${item.nama_barang}
+                                    <input type="hidden" name="details[${rowIndex}][barang_id]" value="${item.barang_id}">
+                                    <input type="hidden" name="details[${rowIndex}][order_detail_id]" value="${item.order_detail_id}">
+                                </td>
+                                <td>
+                                    <input type="number" name="details[${rowIndex}][qty]" class="form-control qty" value="${item.qty}" readonly>
+                                </td>
+                                <td>
+                                    <input type="number" name="details[${rowIndex}][harga]" class="form-control harga"
+                                    value="${item.harga}" readonly style="background-color:#e9ecef;">
+                                </td>
+                                <td>
+                                    <input type="number" name="details[${rowIndex}][subtotal]"
+                                    class="form-control subtotal-detail" readonly style="background-color:#e9ecef;">
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-danger btn-sm remove-row">-</button>
+                                </td>
+                            `;
                             itemsTable.appendChild(row);
                             calculateRow(row);
                             rowIndex++;
@@ -269,10 +289,10 @@
                     if (selectedDN.length === 0) {
                         supplierInput.value = '';
                         selectedDnBox.innerHTML = `
-                                <small class="text-muted">
-                                    Delivery Note dipilih akan muncul di sini
-                                </small>
-                            `;
+                            <small class="text-muted">
+                                Delivery Note dipilih akan muncul di sini
+                            </small>
+                        `;
                         calculateTotal();
                     }
                 }

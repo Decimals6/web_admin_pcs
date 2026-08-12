@@ -950,11 +950,13 @@ class InvoiceController extends Controller
             'jatuh_tempo' => 'required|date',
             'delivery_note_ids' => 'required|array|min:1',
             'delivery_note_ids.*' => 'exists:delivery_notes,id',
+            'details' => 'required|array|min:1',
             'details.*.order_detail_id' => 'required|exists:order_details,id',
             'details.*.qty' => 'required|numeric|min:1',
             'details.*.harga' => 'required|numeric|min:0',
             'ppn_mode' => 'required|in:ppn,non',
-            'diskon' => 'nullable|numeric|min:0', // Validasi diskon baru
+            'diskon' => 'nullable|numeric|min:0',
+            'ongkir' => 'nullable|numeric|min:0', // Validasi ongkir ditambahkan
         ]);
 
         DB::beginTransaction();
@@ -984,9 +986,9 @@ class InvoiceController extends Controller
             $dpp = collect($request->details)
                 ->sum(fn($item) => $item['qty'] * $item['harga']);
 
-            // Tangkap nilai diskon (jika kosong setel ke 0)
+            // Tangkap nilai diskon & ongkir (jika kosong setel ke 0)
             $diskon = $request->input('diskon', 0) ?? 0;
-            $ongkir = 0; // Default paksa ke angka 0 sesuai kesepakatan invoice masuk
+            $ongkir = $request->input('ongkir', 0) ?? 0;
 
             // 2. Kalkulasi Nilai setelah potongan diskon
             $subtotalSetelahDiskon = $dpp - $diskon;
@@ -1001,7 +1003,7 @@ class InvoiceController extends Controller
                 $ppn = $subtotalSetelahDiskon * 0.11;
             }
 
-            // 4. Hitung Grand Total Akhir
+            // 4. Hitung Grand Total Akhir (termasuk ongkir)
             $total = $subtotalSetelahDiskon + $ppn + $ongkir;
 
             $invoice = Invoice::create([
@@ -1011,18 +1013,18 @@ class InvoiceController extends Controller
                 'jatuh_tempo' => $request->jatuh_tempo,
                 'customer_id' => null,
                 'supplier_id' => $supplier_id,
-                'delivery_note_id' => $first_delivery_note_id, // Mengisi kolom database relasi pertama
+                'delivery_note_id' => $first_delivery_note_id,
                 'dpp' => $dpp,
                 'diskon' => $diskon,
                 'ppn' => $ppn,
-                'ongkir' => $ongkir, // Masuk database senilai 0
+                'ongkir' => $ongkir, // Menyimpan nominal ongkir aktual
                 'grand_total' => $total,
                 'status' => 'unpaid',
                 'paid' => 0,
                 'type' => Invoice::TYPE_MASUK,
             ]);
 
-            // Hubungan Pivot Many-to-Many tetap berjalan aman
+            // Hubungan Pivot Many-to-Many
             $invoice->deliveryNote()->attach($request->delivery_note_ids);
 
             foreach ($request->details as $item) {
@@ -1063,19 +1065,19 @@ class InvoiceController extends Controller
 
     public function updateMasuk(Request $request, $id)
     {
-        // 1. Perbaiki validasi agar lebih fleksibel terhadap index array detail barang
         $request->validate([
             'no' => 'required|unique:invoices,no,' . $id,
             'tgl' => 'required|date',
             'jatuh_tempo' => 'required|date',
             'delivery_note_ids' => 'required|array|min:1',
             'delivery_note_ids.*' => 'exists:delivery_notes,id',
-            'details' => 'required|array|min:1', // Validasi induk array-nya dulu
+            'details' => 'required|array|min:1',
             'details.*.order_detail_id' => 'required|exists:order_details,id',
-            'details.*.qty' => 'required|numeric|min:0.01', // Dukung pecahan jika ada label roll/meteran
+            'details.*.qty' => 'required|numeric|min:0.01',
             'details.*.harga' => 'required|numeric|min:0',
             'ppn_mode' => 'required|in:ppn,non',
             'diskon' => 'nullable|numeric|min:0',
+            'ongkir' => 'nullable|numeric|min:0', // Validasi ongkir ditambahkan
         ]);
 
         DB::beginTransaction();
@@ -1102,26 +1104,30 @@ class InvoiceController extends Controller
                 }
             }
 
-            // 2. Gunakan collect() untuk menghitung DPP kotor agar aman dari index array yang bolong-bolong
+            // 1. Hitung DPP (Subtotal Kotor)
             $dpp = collect($request->details)->sum(function ($item) {
                 return (float) $item['qty'] * (float) $item['harga'];
             });
 
+            // Tangkap input diskon & ongkir
             $diskon = $request->input('diskon', 0) ?? 0;
-            $ongkir = 0;
+            $ongkir = $request->input('ongkir', 0) ?? 0;
 
+            // 2. Hitung Nilai setelah diskon
             $subtotalSetelahDiskon = $dpp - $diskon;
             if ($subtotalSetelahDiskon < 0) {
                 $subtotalSetelahDiskon = 0;
             }
 
+            // 3. Hitung PPN
             $mode = $request->ppn_mode;
             $ppn = 0;
             if ($mode === 'ppn') {
                 $ppn = $subtotalSetelahDiskon * 0.11;
             }
 
-            $total = $subtotalSetelahDiskon + $ppn + $ongkir;
+            // 4. Kalkulasi Grand Total Akhir (DPP Bersih + PPN + Ongkir)
+            $grandTotal = $subtotalSetelahDiskon + $ppn + $ongkir;
 
             $invoice->update([
                 'no' => $request->no,
@@ -1133,8 +1139,8 @@ class InvoiceController extends Controller
                 'dpp' => $dpp,
                 'diskon' => $diskon,
                 'ppn' => $ppn,
-                'ongkir' => $ongkir,
-                'grand_total' => $total,
+                'ongkir' => $ongkir, // Menyimpan nilai ongkir yang diupdate
+                'grand_total' => $grandTotal,
             ]);
 
             $invoice->deliveryNote()->sync($request->delivery_note_ids);
@@ -1158,7 +1164,7 @@ class InvoiceController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withTarget('_self')->withErrors($e->getMessage())->withInput();
+            return back()->withErrors($e->getMessage())->withInput();
         }
     }
 
