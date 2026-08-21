@@ -1419,23 +1419,105 @@ class InvoiceController extends Controller
     // DELETE
     // ===========================
 
-    public function destroy(Invoice $invoice)
+    /**
+     * API untuk cek relasi invoice sebelum dihapus
+     */
+    public function checkRelationKeluar($id)
     {
-        foreach ($invoice->details as $d) {
-            $barang = $d->orderDetail->barang;
-            $qty = $d->orderDetail->qty;
-            if ($invoice->type == 'in') {
-                $barang->stok -= $qty;
-            } else {
-                $barang->stok += $qty;
+        $invoice = Invoice::with(['paymentDetails', 'details', 'deliveryNote'])->findOrFail($id);
+
+        return response()->json([
+            'details_count' => $invoice->details->count(),
+            'payments_count' => $invoice->paymentDetails->count(),
+            'paid_formatted' => 'Rp ' . number_format($invoice->paid, 0, ',', '.'),
+            'dn_count' => $invoice->deliveryNote->count(),
+        ]);
+    }
+
+    /**
+     * Eksekusi Hapus Invoice beserta seluruh dependensi tabelnya
+     */
+    public function destroyKeluar($id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $invoice = Invoice::findOrFail($id);
+
+            // 1. Lepas relasi pivot Many-to-Many ke delivery_notes
+            $invoice->deliveryNote()->detach();
+
+            // 2. Hapus detail item invoice
+            $invoice->details()->delete();
+
+            // 3. Hapus riwayat pembayaran terkait invoice (PaymentDetail)
+            $invoice->paymentDetails()->delete();
+
+            // 4. Hapus data ongkir tambahan jika tabel relasi invoice_ongkirs ada
+            if (method_exists($invoice, 'ongkirs')) {
+                $invoice->ongkirs()->delete();
             }
-            $barang->save();
+
+            // 5. Hapus record utama invoice
+            $invoice->delete();
+
+            DB::commit();
+
+            return redirect()->back()->with('success', "Invoice {$invoice->no} dan seluruh data terkait berhasil dihapus.");
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->withErrors('Gagal menghapus invoice: ' . $e->getMessage());
         }
+    }
 
-        $invoice->delete();
+    public function checkRelationMasuk($id)
+    {
+        $invoice = Invoice::with(['paymentDetails', 'details', 'deliveryNote'])->findOrFail($id);
 
-        $route = $invoice->type == 'in' ? 'pembelian.invoice.index' : 'penjualan.invoice.index';
-        return redirect()->route($route)->with('success', 'Invoice berhasil dihapus.');
+        return response()->json([
+            'details_count' => $invoice->details->count(),
+            'payments_count' => $invoice->paymentDetails->count(),
+            'paid_formatted' => 'Rp ' . number_format($invoice->paid, 0, ',', '.'),
+            'dn_count' => $invoice->deliveryNote->count(),
+        ]);
+    }
+
+    /**
+     * Eksekusi Hapus Invoice beserta seluruh dependensi tabelnya
+     */
+    public function destroyMasuk($id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $invoice = Invoice::findOrFail($id);
+
+            // 1. Lepas relasi pivot Many-to-Many ke delivery_notes
+            $invoice->deliveryNote()->detach();
+
+            // 2. Hapus detail item invoice
+            $invoice->details()->delete();
+
+            // 3. Hapus riwayat pembayaran terkait invoice (PaymentDetail)
+            $invoice->paymentDetails()->delete();
+
+            // 4. Hapus data ongkir tambahan jika tabel relasi invoice_ongkirs ada
+            if (method_exists($invoice, 'ongkirs')) {
+                $invoice->ongkirs()->delete();
+            }
+
+            // 5. Hapus record utama invoice
+            $invoice->delete();
+
+            DB::commit();
+
+            return redirect()->back()->with('success', "Invoice {$invoice->no} dan seluruh data terkait berhasil dihapus.");
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->withErrors('Gagal menghapus invoice: ' . $e->getMessage());
+        }
     }
 
     // ===========================

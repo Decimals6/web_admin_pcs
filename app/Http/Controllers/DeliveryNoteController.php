@@ -10,6 +10,7 @@ use App\Models\OrderDetail;
 use App\Models\Barang;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\MutasiBarang;
+use Illuminate\Support\Facades\DB;
 
 class DeliveryNoteController extends Controller
 {
@@ -433,21 +434,62 @@ class DeliveryNoteController extends Controller
 
     public function destroy(DeliveryNote $deliveryNote)
     {
-        // Rollback stok sebelum hapus
-        foreach ($deliveryNote->details as $d) {
-            $barang = $d->orderDetail->barang;
-            if ($deliveryNote->type == 'masuk') {
-                $barang->stok -= $d->orderDetail->qty;
-            } else {
-                $barang->stok += $d->orderDetail->qty;
+        DB::beginTransaction();
+
+        try {
+            // 1. Rollback stok barang
+            foreach ($deliveryNote->details as $d) {
+                $orderDetail = $d->orderDetail;
+                if ($orderDetail && $orderDetail->barang) {
+                    $barang = $orderDetail->barang;
+                    $qty = $d->qty ?? $orderDetail->qty;
+
+                    if ($deliveryNote->type == 'masuk') {
+                        $barang->stok -= $qty;
+                    } else {
+                        $barang->stok += $qty;
+                    }
+                    $barang->save();
+                }
             }
-            $barang->save();
+
+            // 2. Lepas relasi pivot Many-to-Many ke tabel Invoices
+            if (method_exists($deliveryNote, 'invoices')) {
+                $deliveryNote->invoices()->detach();
+            }
+
+            // 3. Hapus detail item surat jalan
+            $deliveryNote->details()->delete();
+
+            // 4. Hapus record utama surat jalan
+            $type = $deliveryNote->type;
+            $deliveryNote->delete();
+
+            DB::commit();
+
+            $route = $type == 'masuk' ? 'pembelian.delivery-note.index' : 'penjualan.delivery-note.index';
+            return redirect()->route($route)->with('success', 'Delivery Note dan dependensinya berhasil dihapus.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->withErrors('Gagal menghapus Delivery Note: ' . $e->getMessage());
         }
+    }
 
-        $deliveryNote->delete();
+    public function checkRelations(DeliveryNote $deliveryNote)
+    {
+        // Eager load details dan invoices (baik via pivot maupun relasi langsung)
+        $deliveryNote->load(['details.orderDetail.barang', 'invoices']);
 
-        $route = $deliveryNote->type == 'masuk' ? 'pembelian.delivery-note.index' : 'penjualan.delivery-note.index';
-        return redirect()->route($route)->with('success', 'Delivery Note berhasil dihapus.');
+        $stockImpactText = ($deliveryNote->type == 'masuk')
+            ? 'Pengurangan stok gudang'
+            : 'Pengembalian stok gudang';
+
+        return response()->json([
+            'details_count' => $deliveryNote->details->count(),
+            'invoices_count' => $deliveryNote->invoices->count(),
+            'stock_impact' => $stockImpactText,
+        ]);
     }
 
     public function getDeliveryNoteDetail($id)

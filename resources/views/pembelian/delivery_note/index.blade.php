@@ -64,15 +64,10 @@
                                         <i class="fas fa-edit"></i> Edit
                                     </a>
 
-                                    {{-- Form Hapus --}}
-                                    <form action="{{ route('pembelian.delivery-note.destroy', $dn->id) }}" method="POST"
-                                        onsubmit="return confirm('Hapus surat jalan ini?')" class="d-inline m-0">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button class="btn btn-sm btn-danger">
-                                            <i class="fas fa-trash"></i> Hapus
-                                        </button>
-                                    </form>
+                                    <button type="button" class="btn btn-sm btn-danger btn-delete-dn" data-id="{{ $dn->id }}"
+                                        data-no="{{ $dn->no }}">
+                                        <i class="fas fa-trash"></i> Hapus
+                                    </button>
 
                                 </div>
                             </td>
@@ -119,6 +114,56 @@
     </div>
 </div>
 
+<!-- Modal Konfirmasi Hapus Delivery Note -->
+<div class="modal fade" id="deleteDnModal" tabindex="-1" role="dialog" aria-labelledby="deleteDnModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content border-danger">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteDnModalLabel">
+                    <i class="fas fa-exclamation-triangle mr-2"></i> Peringatan Hapus Surat Jalan
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+
+            <form id="formDeleteDn" method="POST" action="">
+                @csrf
+                @method('DELETE')
+
+                <div class="modal-body">
+                    <p class="mb-2">Apakah Anda yakin ingin menghapus Surat Jalan <strong id="delete_dn_no"></strong>?
+                    </p>
+
+                    <!-- Loading state -->
+                    <div id="loading_dn_relations" class="text-center py-3 text-muted">
+                        <i class="fas fa-spinner fa-spin"></i> Memeriksa data terkait...
+                    </div>
+
+                    <!-- Area Data Terkait -->
+                    <div id="dn_relations_container" style="display: none;">
+                        <div class="alert alert-warning mb-2 py-2">
+                            <small class="d-block font-weight-bold">
+                                <i class="fas fa-info-circle"></i> Perhatian: Penghapusan ini akan berdampak pada data
+                                berikut:
+                            </small>
+                        </div>
+                        <ul class="list-group list-group-flush border rounded mb-2" id="dn_relations_list">
+                            <!-- Injected by JavaScript -->
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-danger font-weight-bold">Ya, Hapus Semua</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('.btn-detail').forEach(btn => {
@@ -130,6 +175,61 @@
                     .then(data => {
                         document.getElementById('detailContent').innerHTML = data;
                         new bootstrap.Modal(document.getElementById('detailModal')).show();
+                    });
+            });
+        });
+
+        const deleteModal = $('#deleteDnModal');
+        const deleteForm = document.getElementById('formDeleteDn');
+        const dnNoSpan = document.getElementById('delete_dn_no');
+        const loadingBox = document.getElementById('loading_dn_relations');
+        const relationsContainer = document.getElementById('dn_relations_container');
+        const relationsList = document.getElementById('dn_relations_list');
+
+        document.querySelectorAll('.btn-delete-dn').forEach(button => {
+            button.addEventListener('click', function () {
+                const dnId = this.getAttribute('data-id');
+                const dnNo = this.getAttribute('data-no');
+
+                dnNoSpan.innerText = dnNo;
+                deleteForm.action = `/penjualan/delivery-note/${dnId}`;
+
+                // Reset state tampilan modal
+                loadingBox.style.display = 'block';
+                relationsContainer.style.display = 'none';
+                relationsList.innerHTML = '';
+
+                deleteModal.modal('show');
+
+                // Request cek relasi via API
+                fetch(`/pembelian/delivery-note/${dnId}/check-relations`)
+                    .then(res => res.json())
+                    .then(data => {
+                        loadingBox.style.display = 'none';
+                        relationsContainer.style.display = 'block';
+
+                        let content = `
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                            Item Barang Detail 
+                            <span class="badge badge-secondary badge-pill">${data.details_count} item</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                            Penyesuaian Stok (Rollback)
+                            <span class="badge badge-info badge-pill">${data.stock_impact}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                            Terkait Tagihan Invoice 
+                            <span class="badge ${data.invoices_count > 0 ? 'badge-danger' : 'badge-success'} badge-pill">
+                                ${data.invoices_count} Invoice
+                            </span>
+                        </li>
+                    `;
+                        relationsList.innerHTML = content;
+                    })
+                    .catch(err => {
+                        loadingBox.style.display = 'none';
+                        relationsContainer.style.display = 'block';
+                        relationsList.innerHTML = `<li class="list-group-item text-danger py-2">Gagal memeriksa dependensi surat jalan.</li>`;
                     });
             });
         });

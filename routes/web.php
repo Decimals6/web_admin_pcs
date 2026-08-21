@@ -86,6 +86,9 @@ Route::prefix('pembelian/purchase-order')
 
         // Jalur untuk nampilin detail via AJAX (opsional, sesuaikan nama fungsi di controller)
         Route::get('/{id}/detail', [OrdersController::class, 'showPODetail'])->name('detail');
+
+        Route::get('/{id}/check-relations', [OrdersController::class, 'checkRelationsPO'])->name('check-relations');
+        Route::delete('/{id}', [OrdersController::class, 'destroyPO'])->name('destroy');
     });
 
 Route::get(
@@ -136,6 +139,10 @@ Route::prefix('penjualan/sales-order')
         Route::post('/store', [OrdersController::class, 'storeSO'])->name('store');
         Route::get('/{id}/edit', [OrdersController::class, 'editSO'])->name('edit');
         Route::put('/{id}/update', [OrdersController::class, 'updateSO'])->name('update');
+
+        // Route Cek Relasi & Hapus SO
+        Route::get('/{id}/check-relations', [OrdersController::class, 'checkRelationsSO'])->name('check-relations');
+        Route::delete('/{id}', [OrdersController::class, 'destroySO'])->name('destroy');
     });
 
 Route::get(
@@ -158,6 +165,7 @@ Route::prefix('pembelian/delivery-note')
         Route::post('/', [DeliveryNoteController::class, 'store'])
             ->name('store')
             ->defaults('type', 'masuk');
+        Route::get('/{deliveryNote}/check-relations', [DeliveryNoteController::class, 'checkRelations'])->name('check-relations');
         Route::get('/{deliveryNote}/edit', [DeliveryNoteController::class, 'edit'])->name('edit');
         Route::put('/{deliveryNote}', [DeliveryNoteController::class, 'update'])->name('update');
         Route::delete('/{deliveryNote}', [DeliveryNoteController::class, 'destroy'])->name('destroy');
@@ -182,6 +190,10 @@ Route::prefix('penjualan/delivery-note')
         Route::post('/', [DeliveryNoteController::class, 'store'])
             ->name('store')
             ->defaults('type', 'keluar');
+
+        // Route API untuk cek relasi Surat Jalan sebelum delete
+        Route::get('/{deliveryNote}/check-relations', [DeliveryNoteController::class, 'checkRelations'])->name('check-relations');
+
         Route::get('/{deliveryNote}/edit', [DeliveryNoteController::class, 'editKeluar'])->name('edit');
         Route::put('/{deliveryNote}', [DeliveryNoteController::class, 'updateKeluar'])->name('update');
         Route::delete('/{deliveryNote}', [DeliveryNoteController::class, 'destroy'])->name('destroy');
@@ -252,6 +264,13 @@ Route::get('/pembelian/data-pembelian/print', [InvoiceController::class, 'printP
 Route::get('/pembelian/data-pembelian', [InvoiceController::class, 'dataPembelian'])->name('pembelian.data-pembelian.index');
 Route::get('/pembelian/data-pembelian/print', [InvoiceController::class, 'printPembelian'])->name('pembelian.data-pembelian.print');
 Route::get('/api/invoice/{id}/payments', [InvoiceController::class, 'getPayments']);
+
+Route::get('/pembelian/invoice/{id}/check-relations', [InvoiceController::class, 'checkRelationMasuk'])->name('pembelian.invoice.check-relations');
+
+// Route Delete Invoice Pembelian
+Route::delete('/pembelian/invoice/{id}', [InvoiceController::class, 'destroyKeluar'])->name('pembelian.invoice.destroy');
+
+
 /*
 |--------------------------------------------------------------------------
 | DATA PENJUALAN
@@ -264,6 +283,11 @@ Route::get('/penjualan/data-penjualan/print', [InvoiceController::class, 'printP
 
 Route::get('/penjualan/data-penjualan/print', [InvoiceController::class, 'printPenjualan'])->name('penjualan.data-penjualan.print');
 Route::get('/api/piutang/{id}/payments', [InvoiceController::class, 'getPaymentsPiutang']);
+
+Route::get('/penjualan/invoice/{id}/check-relations', [InvoiceController::class, 'checkRelationKeluar'])->name('penjualan.invoice.check-relations');
+
+// Route Delete Invoice Penjualan
+Route::delete('/penjualan/invoice/{id}', [InvoiceController::class, 'destroyKeluar'])->name('penjualan.invoice.destroy');
 
 //payment penjualan
 Route::get('/penjualan/payment', [PaymentController::class, 'index'])

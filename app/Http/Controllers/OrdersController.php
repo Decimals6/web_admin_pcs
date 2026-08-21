@@ -10,6 +10,7 @@ use App\Models\DeliveryNote;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Models\Invoice;
 
 class OrdersController extends Controller
 {
@@ -212,6 +213,204 @@ class OrdersController extends Controller
     }
 
     //============================= End pembelian ========================================================
+
+    public function checkRelationsPO($id)
+    {
+        try {
+            $order = Orders::with(['details'])->findOrFail($id);
+
+            // 1. Ambil Delivery Note terkait
+            $deliveryNotes = DeliveryNote::where('order_id', $order->id)->get();
+            $dnIds = $deliveryNotes->pluck('id')->toArray();
+
+            // 2. Query Invoice aman dari empty array
+            $invoicesQuery = Invoice::where('no_so', $order->no);
+
+            if (!empty($dnIds)) {
+                $invoicesQuery->orWhereHas('deliveryNote', function ($q) use ($dnIds) {
+                    $q->whereIn('delivery_notes.id', $dnIds);
+                });
+            }
+
+            $invoicesCount = $invoicesQuery->count();
+
+            return response()->json([
+                'details_count' => $order->details ? $order->details->count() : 0,
+                'dn_count' => $deliveryNotes->count(),
+                'invoices_count' => $invoicesCount,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => true,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function destroyPO($id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $order = Orders::with(['details.barang'])->findOrFail($id);
+
+            // 1. Ambil semua Delivery Note terkait order ini
+            $deliveryNotes = DeliveryNote::with('details')->where('order_id', $order->id)->get();
+
+            foreach ($deliveryNotes as $dn) {
+                // Rollback stok barang
+                foreach ($dn->details as $dnDetail) {
+                    $orderDetail = $dnDetail->orderDetail;
+                    if ($orderDetail && $orderDetail->barang) {
+                        $barang = $orderDetail->barang;
+                        $qty = $dnDetail->qty ?? $orderDetail->qty;
+
+                        if ($dn->type == 'masuk') {
+                            $barang->stok -= $qty;
+                        } else {
+                            $barang->stok += $qty;
+                        }
+                        $barang->save();
+                    }
+                }
+
+                // Lepas pivot relasi ke Invoice
+                if (method_exists($dn, 'invoices')) {
+                    $dn->invoices()->detach();
+                }
+
+                $dn->details()->delete();
+                $dn->delete();
+            }
+
+            // 2. Hapus Invoice yang tercatat berdasarkan no_so ini
+            $invoices = Invoice::with(['details', 'paymentDetails'])->where('no_so', $order->no)->get();
+            foreach ($invoices as $inv) {
+                $inv->deliveryNote()->detach();
+                $inv->details()->delete();
+                $inv->paymentDetails()->delete();
+                if (method_exists($inv, 'ongkirs')) {
+                    $inv->ongkirs()->delete();
+                }
+                $inv->delete();
+            }
+
+            // 3. Hapus Detail Item Order
+            $order->details()->delete();
+
+            // 4. Hapus Sales Order utama
+            $order->delete();
+
+            DB::commit();
+
+            return redirect()->route('pembelian.sales-order.index')
+                ->with('success', "Purchase Order {$order->no} beserta seluruh data relasinya berhasil dihapus.");
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->withErrors('Gagal menghapus Purchase Order: ' . $e->getMessage());
+        }
+    }
+
+
+
+    public function checkRelationsSO($id)
+    {
+        try {
+            $order = Orders::with(['details'])->findOrFail($id);
+
+            // 1. Ambil Delivery Note terkait
+            $deliveryNotes = DeliveryNote::where('order_id', $order->id)->get();
+            $dnIds = $deliveryNotes->pluck('id')->toArray();
+
+            // 2. Query Invoice aman dari empty array
+            $invoicesQuery = Invoice::where('no_so', $order->no);
+
+            if (!empty($dnIds)) {
+                $invoicesQuery->orWhereHas('deliveryNote', function ($q) use ($dnIds) {
+                    $q->whereIn('delivery_notes.id', $dnIds);
+                });
+            }
+
+            $invoicesCount = $invoicesQuery->count();
+
+            return response()->json([
+                'details_count' => $order->details ? $order->details->count() : 0,
+                'dn_count' => $deliveryNotes->count(),
+                'invoices_count' => $invoicesCount,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => true,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function destroySO($id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $order = Orders::with(['details.barang'])->findOrFail($id);
+
+            // 1. Ambil semua Delivery Note terkait order ini
+            $deliveryNotes = DeliveryNote::with('details')->where('order_id', $order->id)->get();
+
+            foreach ($deliveryNotes as $dn) {
+                // Rollback stok barang
+                foreach ($dn->details as $dnDetail) {
+                    $orderDetail = $dnDetail->orderDetail;
+                    if ($orderDetail && $orderDetail->barang) {
+                        $barang = $orderDetail->barang;
+                        $qty = $dnDetail->qty ?? $orderDetail->qty;
+
+                        if ($dn->type == 'masuk') {
+                            $barang->stok -= $qty;
+                        } else {
+                            $barang->stok += $qty;
+                        }
+                        $barang->save();
+                    }
+                }
+
+                // Lepas pivot relasi ke Invoice
+                if (method_exists($dn, 'invoices')) {
+                    $dn->invoices()->detach();
+                }
+
+                $dn->details()->delete();
+                $dn->delete();
+            }
+
+            // 2. Hapus Invoice yang tercatat berdasarkan no_so ini
+            $invoices = Invoice::with(['details', 'paymentDetails'])->where('no_so', $order->no)->get();
+            foreach ($invoices as $inv) {
+                $inv->deliveryNote()->detach();
+                $inv->details()->delete();
+                $inv->paymentDetails()->delete();
+                if (method_exists($inv, 'ongkirs')) {
+                    $inv->ongkirs()->delete();
+                }
+                $inv->delete();
+            }
+
+            // 3. Hapus Detail Item Order
+            $order->details()->delete();
+
+            // 4. Hapus Sales Order utama
+            $order->delete();
+
+            DB::commit();
+
+            return redirect()->route('penjualan.sales-order.index')
+                ->with('success', "Sales Order {$order->no} beserta seluruh data relasinya berhasil dihapus.");
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->withErrors('Gagal menghapus Sales Order: ' . $e->getMessage());
+        }
+    }
 
     //============================= PENJUALAN ========================================================
     // Tampilkan semua SO
