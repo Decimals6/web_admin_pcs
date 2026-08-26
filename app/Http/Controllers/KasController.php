@@ -130,7 +130,7 @@ class KasController extends Controller
 
     public function indexVoucher()
     {
-        $data = Voucher::orderBy('tgl_akhir')->orderBy('id')->get();
+        $data = Voucher::orderBy('id', 'desc')->paginate(10);
         return view('petty_cash.voucher.index', compact('data'));
     }
 
