@@ -13,7 +13,7 @@ class PaymentController extends Controller
         $query = Payment::with([
             'customer',
             'details.invoice'
-        ]);
+        ])->where('type', 'in');
 
         if ($request->filled('from')) {
             $query->whereDate('created_at', '>=', $request->from);
