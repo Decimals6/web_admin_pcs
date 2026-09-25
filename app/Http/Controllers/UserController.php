@@ -9,20 +9,20 @@ use Illuminate\Support\Facades\Hash;
 class UserController extends Controller
 {
     public function index(Request $request)
-{
-    $query = \App\Models\User::query();
+    {
+        $query = \App\Models\User::query();
 
-    if ($request->search) {
-        $query->where(function ($q) use ($request) {
-            $q->where('name', 'like', '%' . $request->search . '%')
-              ->orWhere('email', 'like', '%' . $request->search . '%');
-        });
+        if ($request->search) {
+            $query->where(function ($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->search . '%')
+                    ->orWhere('email', 'like', '%' . $request->search . '%');
+            });
+        }
+
+        $users = $query->paginate(10)->withQueryString();
+
+        return view('users.index', compact('users'));
     }
-
-    $users = $query->paginate(10)->withQueryString();
-
-    return view('users.index', compact('users'));
-}
 
     public function create()
     {
@@ -38,11 +38,11 @@ class UserController extends Controller
         ]);
 
         User::create([
-    'name' => $request->name,
-    'email' => $request->email,
-    'password' => Hash::make($request->password),
-    'role' => $request->role
-    ]);
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'role' => $request->role
+        ]);
 
 
         return redirect()->route('users.index')
@@ -59,12 +59,13 @@ class UserController extends Controller
         $request->validate([
             'name' => 'required',
             'email' => 'required|email|unique:users,email,' . $user->id,
+            'is_active' => 'required|boolean', // <-- Tambahkan validasi ini
         ]);
 
-        $data = $request->only('name','email','role');
+        // Masukkan is_active ke array yang diambil
+        $data = $request->only('name', 'email', 'role', 'is_active');
 
-
-        if ($request->password) {
+        if ($request->filled('password')) {
             $data['password'] = Hash::make($request->password);
         }
 
@@ -80,12 +81,12 @@ class UserController extends Controller
         return redirect()->route('users.index')
             ->with('success', 'User berhasil dihapus');
 
-    //     if (auth()->user()->role !== 'admin') {
-    // abort(403);
+        //     if (auth()->user()->role !== 'admin') {
+        // abort(403);
     }
 
 
-        // Cegah staff hapus user
+    // Cegah staff hapus user
     // if (!auth()->User()->isAdmin()) {
     //     abort(403, 'Anda tidak punya akses');
     // }
@@ -96,5 +97,5 @@ class UserController extends Controller
     //     ->with('success', 'User berhasil dihapus');
     // }
 
-    
+
 }

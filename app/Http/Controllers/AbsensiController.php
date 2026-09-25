@@ -24,8 +24,8 @@ class AbsensiController extends Controller
         $period = null;
         $users = [];
 
-        
-        $allUsers = User::orderBy('name')->get();
+        // Hanya ambil karyawan yang aktif saja
+        $allUsers = User::where('is_active', true)->orderBy('name')->get();
 
         if ($request->has(['start_date', 'end_date'])) {
             $period = CarbonPeriod::create($request->start_date, $request->end_date);
@@ -36,7 +36,7 @@ class AbsensiController extends Controller
             'history',
             'period',
             'users',
-            'allUsers' 
+            'allUsers'
         ));
     }
 
@@ -266,7 +266,7 @@ class AbsensiController extends Controller
 
         return $pdf->stream($filename);
     }
-    
+
     public function print(Request $request)
     {
         $bulan = $request->bulan; // format: YYYY-MM
@@ -302,7 +302,7 @@ class AbsensiController extends Controller
 
         // 5. Load View (Hapus dd() nya)
         $pdf = Pdf::loadView('absensi.absen-karyawan.print', compact('data', 'period', 'bulan'))
-              ->setPaper('a4', 'landscape'); // <--- TAMBAHKAN INI
+            ->setPaper('a4', 'landscape'); // <--- TAMBAHKAN INI
 
         return $pdf->stream('rekap-absensi-' . $bulan . '.pdf');
     }
