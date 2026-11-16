@@ -46,9 +46,9 @@ class OrdersController extends Controller
 
     public function createPO()
     {
-        $suppliers = Supplier::all();
-        $barangs = Barang::all();
-        $deliveryNotes = DeliveryNote::where('type', 'masuk')->get(); // <- ini
+        $suppliers = Supplier::orderBy('nama_supplier')->get();
+        $barangs = Barang::orderBy('nama_barang')->get();
+        $deliveryNotes = DeliveryNote::where('type', 'masuk')->orderByDesc('tgl')->orderByDesc('id')->get();
         return view('pembelian.purchase-order.create', compact('suppliers', 'barangs', 'deliveryNotes'));
     }
 
@@ -303,7 +303,7 @@ class OrdersController extends Controller
 
             DB::commit();
 
-            return redirect()->route('pembelian.sales-order.index')
+            return redirect()->route('pembelian.purchase-order.index')
                 ->with('success', "Purchase Order {$order->no} beserta seluruh data relasinya berhasil dihapus.");
 
         } catch (\Exception $e) {
@@ -447,9 +447,8 @@ class OrdersController extends Controller
 
     public function createSO()
     {
-        $suppliers = Supplier::all();
-        $customer = Customer::all();
-        $barangs = Barang::all();
+        $customer = Customer::orderBy('nama_customer')->get();
+        $barangs = Barang::orderBy('nama_barang')->get();
         return view('penjualan.sales-order.create', compact('customer', 'barangs'));
     }
 

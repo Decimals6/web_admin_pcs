@@ -3,19 +3,22 @@
 @section('content')
     <div class="card">
         <div class="card-header bg-dark text-white">
-            <h4>Buat Sales Order</h4>
+            <h4 class="mb-0">Buat Sales Order</h4>
         </div>
 
         <form action="{{ route('penjualan.sales-order.store') }}" method="POST" id="soForm">
             @csrf
 
             @if ($errors->any())
-                <div style="color:red;">
-                    @foreach ($errors->all() as $error)
-                        <p>{{ $error }}</p>
-                    @endforeach
+                <div class="alert alert-danger m-3">
+                    <ul class="mb-0">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
                 </div>
             @endif
+
             <div class="card-body">
 
                 <div class="row mb-2">
@@ -29,7 +32,6 @@
                             <button class="btn btn-outline-secondary" type="button" id="btn-toggle-so"
                                 title="Edit Nomor SO">
                                 <i class="fas fa-pencil-alt"></i>
-                                <!-- Menggunakan FontAwesome, atau ganti dengan icon pilihanmu -->
                             </button>
                         </div>
                     </div>
@@ -41,10 +43,12 @@
 
                     <div class="col-md-3">
                         <label>Customer</label>
-                        <select name="customer_id" class="form-control" required>
-                            <option value="">-- Pilih Customer --</option>
+                        <select name="customer_id" id="customer_id" class="form-control select2-search" data-placeholder="-- Cari / Pilih Customer --" required>
+                            <option value="">-- Cari / Pilih Customer --</option>
                             @foreach($customer as $s)
-                                <option value="{{ $s->id }}">{{ $s->nama_customer }}</option>
+                                <option value="{{ $s->id }}">
+                                    {{ $s->kode_customer ? '[' . $s->kode_customer . '] ' : '' }}{{ $s->nama_customer }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
@@ -64,37 +68,38 @@
                 <table class="table table-bordered" id="items-table">
                     <thead class="bg-secondary text-white">
                         <tr>
-                            <th>Barang</th>
-                            <th>Qty</th>
-                            <th>Harga</th>
-                            <th>Subtotal</th>
-                            <th>Aksi</th>
+                            <th style="width:45%">Barang</th>
+                            <th style="width:12%">Qty</th>
+                            <th style="width:20%">Harga</th>
+                            <th style="width:18%">Subtotal</th>
+                            <th style="width:5%" class="text-center">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td>
                                 <select name="barang_id[]" class="form-control barang-select" required>
-                                    <option value="">-- Pilih Barang --</option>
-                                    @foreach(\App\Models\Barang::all() as $b)
-                                        <option value="{{ $b->id }}">{{ $b->nama_barang }}</option>
+                                    <option value="">-- Cari Kode / Nama Barang --</option>
+                                    @foreach($barangs as $b)
+                                        <option value="{{ $b->id }}" data-stok="{{ $b->stok }}">
+                                            [{{ $b->kode_barang }}] {{ $b->nama_barang }}
+                                        </option>
                                     @endforeach
                                 </select>
                             </td>
-                            <td><input type="number" name="qty[]" class="form-control qty" min="0" step="0.01" required>
-                            </td>
+                            <td><input type="number" name="qty[]" class="form-control qty" min="0.01" step="0.01" required></td>
                             <td>
                                 <div class="input-group">
                                     <input type="number" name="harga[]" class="form-control harga" min="0" step="0.01"
                                         readonly style="background-color:#e9ecef;">
-                                    <button type="button" class="btn btn-outline-secondary edit-harga">
-                                        ✏️
+                                    <button type="button" class="btn btn-outline-secondary edit-harga" title="Edit Harga Manual">
+                                        <i class="fas fa-pencil-alt"></i>
                                     </button>
                                 </div>
                             </td>
                             <td><input type="number" name="subtotal_detail[]" class="form-control subtotal-detail" readonly
                                     style="background-color:#e9ecef;"></td>
-                            <td><button type="button" class="btn btn-danger btn-sm remove-row">-</button></td>
+                            <td class="text-center"><button type="button" class="btn btn-danger btn-sm remove-row">-</button></td>
                         </tr>
                     </tbody>
                 </table>
@@ -128,55 +133,105 @@
 
             <div class="card-footer">
                 <button class="btn btn-success">Simpan SO</button>
-                <a href="{{ route('pembelian.purchase-order.index') }}" class="btn btn-secondary">Kembali</a>
+                <a href="{{ route('penjualan.sales-order.index') }}" class="btn btn-secondary">Kembali</a>
             </div>
         </form>
     </div>
 @endsection
 
+<style>
+    .select2-container--default .select2-selection--single {
+        height: 38px !important;
+        display: flex !important;
+        align-items: center !important;
+        border: 1px solid #ced4da !important;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: normal !important;
+        padding-left: 8px !important;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 38px !important;
+    }
+</style>
+
 @section('scripts')
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        $(document).ready(function () {
+            const barangOptionsHtml = `
+                <option value="">-- Cari Kode / Nama Barang --</option>
+                @foreach($barangs as $b)
+                    <option value="{{ $b->id }}" data-stok="{{ $b->stok }}">[{{ $b->kode_barang }}] {{ addslashes($b->nama_barang) }}</option>
+                @endforeach
+            `;
 
-            // Fungsi hitung subtotal per baris
+            $('.select2-search').select2({
+                placeholder: function () {
+                    return $(this).data('placeholder') || '-- Pilih --';
+                },
+                allowClear: true,
+                width: '100%'
+            });
+
+            function formatBarangOption(option) {
+                if (!option.id) return option.text;
+                let stok = parseFloat($(option.element).data('stok')) || 0;
+                let badgeColor = stok > 10 ? '#28a745' : (stok > 0 ? '#d39e00' : '#dc3545');
+                return $(`
+                    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+                        <span>${option.text}</span>
+                        <span style="color:${badgeColor};font-weight:bold;font-size:0.85em;">Stok: ${stok}</span>
+                    </div>
+                `);
+            }
+
+            function initBarangSelect2(element) {
+                element.select2({
+                    placeholder: "-- Cari Kode / Nama Barang --",
+                    allowClear: true,
+                    width: '100%',
+                    templateResult: formatBarangOption,
+                    templateSelection: function (option) {
+                        return option.text || option.id;
+                    }
+                });
+            }
+
+            initBarangSelect2($('.barang-select'));
+
             function calculateRow(row) {
-                let qty = parseFloat(row.querySelector('.qty').value) || 0;
-                let harga = parseFloat(row.querySelector('.harga').value) || 0;
-                let subtotalInput = row.querySelector('.subtotal-detail');
-
+                let qty = parseFloat($(row).find('.qty').val()) || 0;
+                let harga = parseFloat($(row).find('.harga').val()) || 0;
                 let subtotal = qty * harga;
-                subtotalInput.value = subtotal.toFixed(2);
+                $(row).find('.subtotal-detail').val(subtotal.toFixed(2));
                 calculateTotal();
             }
 
-            // Fungsi hitung total keseluruhan (DPP, Pajak, Grand Total)
             function calculateTotal() {
                 let dpp = 0;
-                document.querySelectorAll('.subtotal-detail').forEach(input => {
-                    dpp += parseFloat(input.value) || 0;
+                $('.subtotal-detail').each(function () {
+                    let val = parseFloat($(this).val());
+                    if (!isNaN(val)) dpp += val;
                 });
 
                 let pajak = dpp * 0.11;
                 let total = dpp + pajak;
 
-                document.getElementById('dpp').value = dpp.toFixed(2);
-                document.getElementById('pajak').value = pajak.toFixed(2);
-                document.getElementById('total').value = total.toFixed(2);
+                $('#dpp').val(dpp.toFixed(2));
+                $('#pajak').val(pajak.toFixed(2));
+                $('#total').val(total.toFixed(2));
             }
 
-            // FUNGSI INI YANG PENTING: Ambil harga dari Server
             async function fetchHarga(row) {
-                let barangId = row.querySelector('.barang-select').value;
-                let qty = row.querySelector('.qty').value;
-                let hargaInput = row.querySelector('.harga');
+                let barangId = $(row).find('.barang-select').val();
+                let qty = $(row).find('.qty').val();
+                let hargaInput = $(row).find('.harga');
 
                 if (barangId && qty > 0) {
                     try {
-                        // Panggil route yang tadi dibuat
                         let response = await fetch(`{{ route('barang.get-harga') }}?barang_id=${barangId}&qty=${qty}`);
                         let data = await response.json();
-
-                        hargaInput.value = data.harga;
+                        hargaInput.val(data.harga);
                         calculateRow(row);
                     } catch (error) {
                         console.error("Gagal mengambil harga", error);
@@ -184,78 +239,69 @@
                 }
             }
 
-            // Event listener saat Barang atau Qty berubah
-            document.getElementById('items-table').addEventListener('change', function (e) {
-                if (e.target.classList.contains('barang-select') || e.target.classList.contains('qty')) {
-                    let row = e.target.closest('tr');
-                    fetchHarga(row); // Panggil fungsi fetchHarga
+            $('#items-table').on('change', '.barang-select, .qty', function () {
+                let row = $(this).closest('tr');
+                fetchHarga(row);
+            });
+
+            $('#items-table').on('input', '.qty, .harga', function () {
+                calculateRow($(this).closest('tr'));
+            });
+
+            $('#add-row').on('click', function () {
+                let tbody = $('#items-table tbody');
+                let newRow = $(`
+                    <tr>
+                        <td>
+                            <select name="barang_id[]" class="form-control barang-select" required>
+                                ${barangOptionsHtml}
+                            </select>
+                        </td>
+                        <td><input type="number" name="qty[]" class="form-control qty" min="0.01" step="0.01" required></td>
+                        <td>
+                            <div class="input-group">
+                                <input type="number" name="harga[]" class="form-control harga" min="0" step="0.01"
+                                    readonly style="background-color:#e9ecef;">
+                                <button type="button" class="btn btn-outline-secondary edit-harga" title="Edit Harga Manual">
+                                    <i class="fas fa-pencil-alt"></i>
+                                </button>
+                            </div>
+                        </td>
+                        <td><input type="number" name="subtotal_detail[]" class="form-control subtotal-detail" readonly
+                                style="background-color:#e9ecef;"></td>
+                        <td class="text-center"><button type="button" class="btn btn-danger btn-sm remove-row">-</button></td>
+                    </tr>
+                `);
+                tbody.append(newRow);
+                initBarangSelect2(newRow.find('.barang-select'));
+            });
+
+            $('#items-table').on('click', '.remove-row', function () {
+                let tbody = $('#items-table tbody');
+                if (tbody.find('tr').length > 1) {
+                    $(this).closest('tr').remove();
+                    calculateTotal();
                 }
             });
 
-            // Event listener saat Qty atau Harga diketik manual (untuk subtotal instan)
-            document.getElementById('items-table').addEventListener('input', function (e) {
-                if (e.target.classList.contains('qty') || e.target.classList.contains('harga')) {
-                    let row = e.target.closest('tr');
-                    calculateRow(row);
-                }
-            });
-
-            // Tombol tambah baris
-            document.getElementById('add-row').addEventListener('click', function () {
-                let tbody = document.querySelector('#items-table tbody');
-                let firstRow = tbody.querySelector('tr');
-                let newRow = firstRow.cloneNode(true);
-
-                newRow.querySelectorAll('input').forEach(input => {
-                    input.value = '';
-                    if (input.classList.contains('harga')) {
-                        input.setAttribute('readonly', true);
-                        input.style.backgroundColor = "#e9ecef";
-                    }
-                });
-                newRow.querySelector('select').selectedIndex = 0;
-                tbody.appendChild(newRow);
-            });
-
-            // Tombol hapus baris
-            document.getElementById('items-table').addEventListener('click', function (e) {
-                if (e.target.classList.contains('remove-row')) {
-                    let tbody = document.querySelector('#items-table tbody');
-                    if (tbody.rows.length > 1) {
-                        e.target.closest('tr').remove();
-                        calculateTotal();
-                    }
-                }
-
-                // Edit harga manual
-                if (e.target.classList.contains('edit-harga')) {
-                    let row = e.target.closest('tr');
-                    let hargaInput = row.querySelector('.harga');
-                    hargaInput.removeAttribute('readonly');
-                    hargaInput.style.backgroundColor = "#fff";
-                    hargaInput.focus();
-                }
+            $('#items-table').on('click', '.edit-harga', function () {
+                let row = $(this).closest('tr');
+                let hargaInput = row.find('.harga');
+                hargaInput.removeAttr('readonly').css('background-color', '#fff').focus();
             });
 
             const inputSO = document.getElementById("no_so");
             const btnToggle = document.getElementById("btn-toggle-so");
 
             btnToggle.addEventListener("click", function () {
-                // Cek apakah saat ini masih readonly
                 if (inputSO.hasAttribute("readonly")) {
-                    // Lepas readonly
                     inputSO.removeAttribute("readonly");
-                    // Ubah background agar terlihat bisa di-edit
                     inputSO.style.backgroundColor = "#fff";
-                    // Ubah warna/style tombol pensil sebagai penanda sedang aktif (opsional)
                     btnToggle.classList.remove("btn-outline-secondary");
                     btnToggle.classList.add("btn-danger");
-                    btnToggle.innerHTML = '<i class="fas fa-lock"></i>'; // Ganti ikon jadi gembok jika ingin mengunci kembali
-
-                    // Otomatis arahkan kursor ke inputan
+                    btnToggle.innerHTML = '<i class="fas fa-lock"></i>';
                     inputSO.focus();
                 } else {
-                    // Jika diklik lagi, kunci kembali
                     inputSO.setAttribute("readonly", true);
                     inputSO.style.backgroundColor = "#e9ecef";
                     btnToggle.classList.remove("btn-danger");

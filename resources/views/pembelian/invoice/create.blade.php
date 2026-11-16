@@ -3,15 +3,15 @@
 @section('content')
     <div class="card">
         <div class="card-header bg-dark text-white">
-            <h4>Buat Invoice Pembelian</h4>
+            <h4 class="mb-0">Buat Invoice Pembelian</h4>
         </div>
 
         <form action="{{ route('pembelian.invoice.store') }}" method="POST" id="invoiceForm">
             @csrf
             @if ($errors->any())
-                <div class="alert alert-danger">
+                <div class="alert alert-danger m-3">
                     <strong>Error:</strong>
-                    <ul>
+                    <ul class="mb-0">
                         @foreach ($errors->all() as $error)
                             <li>{{ $error }}</li>
                         @endforeach
@@ -32,23 +32,25 @@
                         <input type="date" name="tgl" class="form-control" value="{{ date('Y-m-d') }}" required>
                     </div>
 
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label>Supplier</label>
                         <input type="text" name="supplier_name" class="form-control" id="supplier_name" readonly
                             style="background-color:#e9ecef;">
                     </div>
 
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <label>Delivery Note</label>
                         <div class="d-flex">
-                            <select id="delivery_note_select" class="form-control">
-                                <option value="">-- Pilih Delivery Note --</option>
-                                @foreach($deliveryNotes as $dn)
-                                    <option value="{{ $dn->id }}">
-                                        {{ $dn->no }} | {{ $dn->tgl->format('d-m-Y') }}
-                                    </option>
-                                @endforeach
-                            </select>
+                            <div class="flex-grow-1">
+                                <select id="delivery_note_select" class="form-control">
+                                    <option value="">-- Cari No. SJ / Supplier --</option>
+                                    @foreach($deliveryNotes as $dn)
+                                        <option value="{{ $dn->id }}">
+                                            {{ $dn->no }} | {{ $dn->tgl->format('d-m-Y') }} | {{ $dn->order->supplier->nama_supplier ?? '-' }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
 
                             <button type="button" class="btn btn-primary ml-2" id="add_dn">
                                 Add
@@ -137,13 +139,28 @@
     </div>
 @endsection
 
+<style>
+    .select2-container--default .select2-selection--single {
+        height: 38px !important;
+        display: flex !important;
+        align-items: center !important;
+        border: 1px solid #ced4da !important;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: normal !important;
+        padding-left: 8px !important;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 38px !important;
+    }
+</style>
+
 @section('scripts')
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-
+        $(document).ready(function () {
             const itemsTable = document.querySelector('#items-table tbody');
             const supplierInput = document.getElementById('supplier_name');
-            const dnSelect = document.getElementById('delivery_note_select');
+            const $dnSelect = $('#delivery_note_select');
             const addDnBtn = document.getElementById('add_dn');
             const selectedDnBox = document.getElementById('selected_dn');
             const ppnMode = document.getElementById('ppn_mode');
@@ -152,6 +169,12 @@
 
             let rowIndex = 0;
             let selectedDN = [];
+
+            $dnSelect.select2({
+                placeholder: "-- Cari No. SJ / Supplier --",
+                allowClear: true,
+                width: '100%'
+            });
 
             function calculateRow(row) {
                 let qty = parseFloat(row.querySelector('.qty').value) || 0;
@@ -170,18 +193,11 @@
                 let diskon = parseFloat(diskonInput.value) || 0;
                 let ongkir = parseFloat(ongkirInput.value) || 0;
 
-                // DPP dipotong diskon terlebih dahulu sebelum kena Pajak
                 let subtotalSetelahDiskon = dpp - diskon;
                 if (subtotalSetelahDiskon < 0) subtotalSetelahDiskon = 0;
 
                 let mode = ppnMode ? ppnMode.value : 'ppn';
-                let pajak = 0;
-
-                if (mode === 'ppn') {
-                    pajak = subtotalSetelahDiskon * 0.11;
-                }
-
-                // Rumus: Subtotal setelah diskon + Pajak + Ongkir
+                let pajak = mode === 'ppn' ? subtotalSetelahDiskon * 0.11 : 0;
                 let grandTotal = subtotalSetelahDiskon + pajak + ongkir;
 
                 document.getElementById('dpp').value = dpp.toFixed(2);
@@ -194,7 +210,7 @@
             if (ongkirInput) ongkirInput.addEventListener('input', calculateTotal);
 
             addDnBtn.addEventListener('click', function () {
-                const dnId = dnSelect.value;
+                const dnId = $dnSelect.val();
 
                 if (!dnId) {
                     alert('Pilih Delivery Note dulu');
@@ -206,7 +222,7 @@
                     return;
                 }
 
-                const dnText = dnSelect.options[dnSelect.selectedIndex].text;
+                const dnText = $dnSelect.find('option:selected').text().trim();
                 selectedDN.push(dnId);
                 if (selectedDN.length === 1) {
                     selectedDnBox.innerHTML = '';
@@ -216,9 +232,11 @@
                 hidden.type = 'hidden';
                 hidden.name = 'delivery_note_ids[]';
                 hidden.value = dnId;
+                hidden.dataset.dnId = dnId;
                 document.getElementById('invoiceForm').appendChild(hidden);
 
-                dnSelect.querySelector(`option[value="${dnId}"]`).style.display = 'none';
+                $dnSelect.find(`option[value="${dnId}"]`).prop('disabled', true);
+                $dnSelect.val('').trigger('change');
 
                 let div = document.createElement('div');
                 div.className = 'd-flex justify-content-between align-items-center bg-white border rounded px-2 py-1 mb-1';
@@ -229,7 +247,6 @@
                     </button>
                 `;
                 selectedDnBox.appendChild(div);
-                dnSelect.value = "";
 
                 loadDN(dnId);
             });
@@ -279,7 +296,12 @@
                 if (e.target.classList.contains('remove-dn')) {
                     const dnId = e.target.dataset.id;
                     selectedDN = selectedDN.filter(id => id !== dnId);
-                    dnSelect.querySelector(`option[value="${dnId}"]`).style.display = 'block';
+                    $dnSelect.find(`option[value="${dnId}"]`).prop('disabled', false);
+                    $dnSelect.trigger('change.select2');
+
+                    const hiddenInput = document.querySelector(`input[name="delivery_note_ids[]"][data-dn-id="${dnId}"]`);
+                    if (hiddenInput) hiddenInput.remove();
+
                     e.target.closest('div').remove();
 
                     itemsTable.innerHTML = '';

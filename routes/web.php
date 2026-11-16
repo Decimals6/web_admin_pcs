@@ -268,7 +268,7 @@ Route::get('/api/invoice/{id}/payments', [InvoiceController::class, 'getPayments
 Route::get('/pembelian/invoice/{id}/check-relations', [InvoiceController::class, 'checkRelationMasuk'])->name('pembelian.invoice.check-relations');
 
 // Route Delete Invoice Pembelian
-Route::delete('/pembelian/invoice/{id}', [InvoiceController::class, 'destroyKeluar'])->name('pembelian.invoice.destroy');
+Route::delete('/pembelian/invoice/{id}', [InvoiceController::class, 'destroyMasuk'])->name('pembelian.invoice.destroy');
 
 
 /*

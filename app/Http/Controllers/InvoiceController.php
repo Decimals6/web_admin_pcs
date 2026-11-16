@@ -922,8 +922,12 @@ class InvoiceController extends Controller
 
     public function createMasuk()
     {
-        $suppliers = Supplier::all();
-        $deliveryNotes = DeliveryNote::where('type', 'masuk')->with('order.supplier')->get();
+        $suppliers = Supplier::orderBy('nama_supplier')->get();
+        $deliveryNotes = DeliveryNote::where('type', 'masuk')
+            ->with('order.supplier')
+            ->orderByDesc('tgl')
+            ->orderByDesc('id')
+            ->get();
         $orderDetails = OrderDetail::with('barang')->get();
 
         return view('pembelian.invoice.create', compact('suppliers', 'deliveryNotes', 'orderDetails'));
@@ -931,8 +935,12 @@ class InvoiceController extends Controller
 
     public function createKeluar()
     {
-        $customers = Customer::all();
-        $deliveryNotes = DeliveryNote::where('type', 'keluar')->with('order.customer')->get();
+        $customers = Customer::orderBy('nama_customer')->get();
+        $deliveryNotes = DeliveryNote::where('type', 'keluar')
+            ->with('order.customer')
+            ->orderByDesc('tgl')
+            ->orderByDesc('id')
+            ->get();
         $orderDetails = OrderDetail::with('barang')->get();
 
         return view('penjualan.invoice.create', compact('customers', 'deliveryNotes', 'orderDetails'));

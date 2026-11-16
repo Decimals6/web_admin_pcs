@@ -77,6 +77,8 @@ class DeliveryNoteController extends Controller
         $orders = Orders::where('type', 'purchase')
             ->where('status', '!=', 'draft')
             ->with('details.barang', 'supplier')
+            ->orderByDesc('tgl')
+            ->orderByDesc('id')
             ->get();
 
         return view('pembelian.delivery_note.create', compact('orders'));
@@ -87,6 +89,8 @@ class DeliveryNoteController extends Controller
         $orders = Orders::where('type', 'sales')
             ->where('status', '!=', 'draft')
             ->with('details.barang', 'customer')
+            ->orderByDesc('tgl')
+            ->orderByDesc('id')
             ->get();
 
         return view('penjualan.delivery_note.create', compact('orders'));
