@@ -10,8 +10,10 @@ class MutasiBarang extends Model
         'tgl_mutasi',
         'barang_id',
         'delivery_note_detail_id',
+        'sampel_id',
         'qty',
         'tipe',
+        'sumber',
         'keterangan'
     ];
     public function barang()
@@ -21,6 +23,10 @@ class MutasiBarang extends Model
     public function deliveryNoteDetail()
     {
         return $this->belongsTo(DeliveryNoteDetail::class);
+    }
+    public function sampel()
+    {
+        return $this->belongsTo(Sampel::class);
     }
 
 }

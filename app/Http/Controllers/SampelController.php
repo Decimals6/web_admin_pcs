@@ -96,14 +96,15 @@ class SampelController extends Controller
                 // 6. POTONG STOK UTAMA BARANG DI GUDANG
                 $barang->decrement('stok', $qtyKeluar);
 
-                //7. Mutasi BARANG
-
+                // 7. Mutasi Barang terikat langsung ke sampel_id & sumber
                 MutasiBarang::create([
                     'tgl_mutasi' => $sampel->tanggal,
                     'barang_id' => $barangId,
+                    'sampel_id' => $sampel->id,
                     'qty' => (int) $qtyKeluar,
                     'tipe' => 'OUT',
-                    'keterangan' => 'SAMPEL ke ' . $sampel->customer->nama_customer,
+                    'sumber' => 'sampel',
+                    'keterangan' => 'SAMPEL ke ' . ($sampel->customer->nama_customer ?? '-'),
                 ]);
             }
 
@@ -156,11 +157,8 @@ class SampelController extends Controller
                 $barangLama->increment('stok', $qtyLama);
             }
 
-            // Hapus record mutasi barang yang terkait sampel ini sebelumnya
-            MutasiBarang::where('tgl_mutasi', $sampel->tanggal)
-                ->where('tipe', 'OUT')
-                ->where('keterangan', 'SAMPEL ke ' . $sampel->customer->nama_customer)
-                ->delete();
+            // Hapus record mutasi barang yang terkait sampel ini sebelumnya secara presisi via sampel_id
+            MutasiBarang::where('sampel_id', $sampel->id)->delete();
 
             // 2. Update data induk sampel
             $sampel->update([
@@ -168,6 +166,7 @@ class SampelController extends Controller
                 'customer_id' => $request->customer_id,
                 'keterangan' => $request->keterangan,
             ]);
+            $sampel->load('customer');
 
             // 3. Array untuk sync pivot baru
             $syncData = [];
@@ -191,13 +190,15 @@ class SampelController extends Controller
                 // Potong stok baru
                 $barang->decrement('stok', $qtyKeluar);
 
-                // Buat mutasi baru
+                // Buat mutasi baru terikat sampel_id & sumber
                 MutasiBarang::create([
                     'tgl_mutasi' => $sampel->tanggal,
                     'barang_id' => $barangId,
-                    'qty' => $qtyKeluar,
+                    'sampel_id' => $sampel->id,
+                    'qty' => (int) $qtyKeluar,
                     'tipe' => 'OUT',
-                    'keterangan' => 'SAMPEL ke ' . $sampel->customer->nama_customer,
+                    'sumber' => 'sampel',
+                    'keterangan' => 'SAMPEL ke ' . ($sampel->customer->nama_customer ?? '-'),
                 ]);
             }
 

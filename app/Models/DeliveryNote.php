@@ -42,20 +42,7 @@ class DeliveryNote extends Model
             'invoice_delivery_notes'
         )->withPivot('keterangan')->withTimestamps();
     }
-    public static function booted()
-    {
-        static::created(function ($deliveryNote) {
-            foreach ($deliveryNote->details as $detail) {
-                $barang = $detail->barang;
-                if ($deliveryNote->type == 'masuk') {
-                    $barang->stok += $detail->qty;
-                } else {
-                    $barang->stok -= $detail->qty;
-                }
-                $barang->save();
-            }
-        });
-    }
+    // Kalkulasi stok dan mutasi barang ditangani secara eksplisit di DeliveryNoteController dalam DB::transaction().
 
 
 }
