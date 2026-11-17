@@ -107,7 +107,7 @@ class OrdersController extends Controller
             DB::commit();
 
             return redirect()->route('pembelian.purchase-order.index')
-                ->with('success', 'Purchase Order berhasil dibuat dan stok diperbarui');
+                ->with('success', 'Purchase Order berhasil dibuat.');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -134,6 +134,9 @@ class OrdersController extends Controller
         $request->validate([
             'tgl' => 'required|date',
             'supplier_id' => 'required|exists:suppliers,id',
+            'detail_id' => 'nullable|array',
+            'detail_id.*' => 'nullable|integer',
+            'barang_id' => 'required|array|min:1',
             'barang_id.*' => 'required|exists:barangs,id',
             'qty.*' => 'required|numeric|min:0.01',
             'harga.*' => 'required|numeric|min:0',
@@ -142,24 +145,55 @@ class OrdersController extends Controller
         DB::beginTransaction();
 
         try {
-            $order = Orders::findOrFail($id);
+            $order = Orders::with('details.barang')->findOrFail($id);
+            $existingDetails = $order->details->keyBy('id');
+            $detailIdsInput = $request->input('detail_id', []);
+            $keptDetailIds = [];
 
-            // 1. Hitung ulang subtotal baru berdasarkan inputan terupdate
+            // 1. Validasi batas pengiriman (qty_sent) & hitung ulang subtotal
             $subtotals = [];
             foreach ($request->barang_id as $i => $barangId) {
-                $subtotals[$i] = $request->qty[$i] * $request->harga[$i];
+                $qtyBaru = (float) $request->qty[$i];
+                $hargaBaru = (float) $request->harga[$i];
+                $detailId = isset($detailIdsInput[$i]) && $detailIdsInput[$i] !== '' ? (int) $detailIdsInput[$i] : null;
+
+                if ($detailId && $existingDetails->has($detailId)) {
+                    $oldDetail = $existingDetails->get($detailId);
+                    $qtySent = (float) ($oldDetail->qty_sent ?? 0);
+
+                    if ($qtySent > 0 && (int) $oldDetail->barang_id !== (int) $barangId) {
+                        $namaBarang = $oldDetail->barang->nama_barang ?? 'Barang';
+                        throw new \Exception("Barang '{$namaBarang}' sudah memiliki Surat Jalan ({$qtySent} terkirim) sehingga jenis barang tidak dapat diganti.");
+                    }
+
+                    if ($qtyBaru < $qtySent) {
+                        $namaBarang = $oldDetail->barang->nama_barang ?? 'Barang';
+                        throw new \Exception("Qty '{$namaBarang}' ({$qtyBaru}) tidak boleh lebih kecil dari qty yang sudah diterima via Surat Jalan ({$qtySent}).");
+                    }
+
+                    $keptDetailIds[] = $detailId;
+                }
+
+                $subtotals[$i] = $qtyBaru * $hargaBaru;
+            }
+
+            // 2. Pastikan item lama yang dihapus dari layar belum memiliki Surat Jalan
+            foreach ($existingDetails as $oldId => $oldDetail) {
+                if (!in_array($oldId, $keptDetailIds, true)) {
+                    $qtySent = (float) ($oldDetail->qty_sent ?? 0);
+                    if ($qtySent > 0) {
+                        $namaBarang = $oldDetail->barang->nama_barang ?? 'Barang';
+                        throw new \Exception("Barang '{$namaBarang}' tidak dapat dihapus karena sudah memiliki Surat Jalan ({$qtySent} terkirim).");
+                    }
+                    $oldDetail->delete();
+                }
             }
 
             $dpp = array_sum($subtotals);
-
-            // Cek apakah pakai PPN atau tidak berdasarkan input toggle PPN
-            $pajak = 0;
-            if ($request->use_ppn == 1) {
-                $pajak = $dpp * 0.11;
-            }
+            $pajak = $request->use_ppn == 1 ? $dpp * 0.11 : 0;
             $total = $dpp + $pajak;
 
-            // 2. Update data PO utama
+            // 3. Update data PO utama
             $order->update([
                 'no' => $request->no,
                 'tgl' => $request->tgl,
@@ -167,25 +201,32 @@ class OrdersController extends Controller
                 'pajak' => $pajak,
                 'dpp' => $dpp,
                 'total' => $total,
-                // Status dibiarin sesuai data lama atau default, keterangan diupdate formatnya
                 'keterangan' => 'TOP: ' . $request->top . ' | Tgl Kirim: ' . $request->tgl_kirim . ' | ' . $request->keterangan,
             ]);
 
-            // 3. STRATEGI UTAMA: BABAT HABIS DETAIL LAMA DI DATABASE
-            \App\Models\OrderDetail::where('order_id', $order->id)->delete();
-
-            // 4. INSERT ULANG SEMUA DETAIL BARU YANG ADA DI LAYAR SCREEN SEKARANG
+            // 4. Update in-place detail lama (menjaga ID & qty_sent) atau buat baru jika baris tambahan
             foreach ($request->barang_id as $i => $barangId) {
-                \App\Models\OrderDetail::create([
-                    'order_id' => $order->id,
-                    'barang_id' => $barangId,
-                    'harga' => $request->harga[$i],
-                    'qty' => $request->qty[$i],
-                    'hpp' => null,
-                    'subtotal' => $subtotals[$i],
-                    'keterangan' => null,
-                    'qty_sent' => 0, // sesuaikan jika ada tracking quantity terkirim sebelumnya
-                ]);
+                $detailId = isset($detailIdsInput[$i]) && $detailIdsInput[$i] !== '' ? (int) $detailIdsInput[$i] : null;
+
+                if ($detailId && $existingDetails->has($detailId)) {
+                    $existingDetails->get($detailId)->update([
+                        'barang_id' => $barangId,
+                        'harga' => $request->harga[$i],
+                        'qty' => $request->qty[$i],
+                        'subtotal' => $subtotals[$i],
+                    ]);
+                } else {
+                    \App\Models\OrderDetail::create([
+                        'order_id' => $order->id,
+                        'barang_id' => $barangId,
+                        'harga' => $request->harga[$i],
+                        'qty' => $request->qty[$i],
+                        'hpp' => null,
+                        'subtotal' => $subtotals[$i],
+                        'keterangan' => null,
+                        'qty_sent' => 0,
+                    ]);
+                }
             }
 
             DB::commit();
@@ -195,7 +236,7 @@ class OrdersController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+            return redirect()->back()->withInput()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
 
@@ -508,7 +549,7 @@ class OrdersController extends Controller
             DB::commit();
 
             return redirect()->route('penjualan.sales-order.index')
-                ->with('success', 'Sales Order berhasil dibuat dan stok diperbarui');
+                ->with('success', 'Sales Order berhasil dibuat.');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -532,27 +573,66 @@ class OrdersController extends Controller
         $request->validate([
             'tgl' => 'required|date',
             'customer_id' => 'required|exists:customers,id',
+            'detail_id' => 'nullable|array',
+            'detail_id.*' => 'nullable|integer',
+            'barang_id' => 'required|array|min:1',
             'barang_id.*' => 'required|exists:barangs,id',
-            'qty.*' => 'required|numeric|min:1', // Validasi angka minimal 1
+            'qty.*' => 'required|numeric|min:0.01',
             'harga.*' => 'required|numeric|min:0',
         ]);
 
         DB::beginTransaction();
 
         try {
-            $order = Orders::findOrFail($id);
+            $order = Orders::with('details.barang')->findOrFail($id);
+            $existingDetails = $order->details->keyBy('id');
+            $detailIdsInput = $request->input('detail_id', []);
+            $keptDetailIds = [];
 
-            // 1. Hitung ulang subtotal berdasarkan input form edit
+            // 1. Validasi batas pengiriman (qty_sent) & hitung ulang subtotal
             $subtotals = [];
             foreach ($request->barang_id as $i => $barangId) {
-                $subtotals[$i] = $request->qty[$i] * $request->harga[$i];
+                $qtyBaru = (float) $request->qty[$i];
+                $hargaBaru = (float) $request->harga[$i];
+                $detailId = isset($detailIdsInput[$i]) && $detailIdsInput[$i] !== '' ? (int) $detailIdsInput[$i] : null;
+
+                if ($detailId && $existingDetails->has($detailId)) {
+                    $oldDetail = $existingDetails->get($detailId);
+                    $qtySent = (float) ($oldDetail->qty_sent ?? 0);
+
+                    if ($qtySent > 0 && (int) $oldDetail->barang_id !== (int) $barangId) {
+                        $namaBarang = $oldDetail->barang->nama_barang ?? 'Barang';
+                        throw new \Exception("Barang '{$namaBarang}' sudah memiliki Surat Jalan ({$qtySent} terkirim) sehingga jenis barang tidak dapat diganti.");
+                    }
+
+                    if ($qtyBaru < $qtySent) {
+                        $namaBarang = $oldDetail->barang->nama_barang ?? 'Barang';
+                        throw new \Exception("Qty '{$namaBarang}' ({$qtyBaru}) tidak boleh lebih kecil dari qty yang sudah dikirim via Surat Jalan ({$qtySent}).");
+                    }
+
+                    $keptDetailIds[] = $detailId;
+                }
+
+                $subtotals[$i] = $qtyBaru * $hargaBaru;
+            }
+
+            // 2. Pastikan item lama yang dihapus dari layar belum memiliki Surat Jalan
+            foreach ($existingDetails as $oldId => $oldDetail) {
+                if (!in_array($oldId, $keptDetailIds, true)) {
+                    $qtySent = (float) ($oldDetail->qty_sent ?? 0);
+                    if ($qtySent > 0) {
+                        $namaBarang = $oldDetail->barang->nama_barang ?? 'Barang';
+                        throw new \Exception("Barang '{$namaBarang}' tidak dapat dihapus karena sudah memiliki Surat Jalan ({$qtySent} terkirim).");
+                    }
+                    $oldDetail->delete();
+                }
             }
 
             $dpp = array_sum($subtotals);
             $pajak = $dpp * 0.11; // PPN 11%
             $total = $dpp + $pajak;
 
-            // 2. Update data master Sales Order
+            // 3. Update data master Sales Order
             $order->update([
                 'no' => $request->no,
                 'tgl' => $request->tgl,
@@ -563,21 +643,29 @@ class OrdersController extends Controller
                 'keterangan' => 'TOP: ' . $request->top . ' | Tgl Kirim: ' . $request->tgl_kirim . ' | ' . $request->keterangan,
             ]);
 
-            // 3. JURUS BARBAR: HAPUS SEMUA DETAIL LAMA
-            \App\Models\OrderDetail::where('order_id', $order->id)->delete();
-
-            // 4. INSERT ULANG DETAIL BARU SESUAI SCREEN SEKARANG
+            // 4. Update in-place detail lama (menjaga ID & qty_sent) atau buat baru jika baris tambahan
             foreach ($request->barang_id as $i => $barangId) {
-                \App\Models\OrderDetail::create([
-                    'order_id' => $order->id,
-                    'barang_id' => $barangId,
-                    'harga' => $request->harga[$i],
-                    'qty' => $request->qty[$i],
-                    'hpp' => null,
-                    'subtotal' => $subtotals[$i],
-                    'keterangan' => null,
-                    'qty_sent' => 0,
-                ]);
+                $detailId = isset($detailIdsInput[$i]) && $detailIdsInput[$i] !== '' ? (int) $detailIdsInput[$i] : null;
+
+                if ($detailId && $existingDetails->has($detailId)) {
+                    $existingDetails->get($detailId)->update([
+                        'barang_id' => $barangId,
+                        'harga' => $request->harga[$i],
+                        'qty' => $request->qty[$i],
+                        'subtotal' => $subtotals[$i],
+                    ]);
+                } else {
+                    \App\Models\OrderDetail::create([
+                        'order_id' => $order->id,
+                        'barang_id' => $barangId,
+                        'harga' => $request->harga[$i],
+                        'qty' => $request->qty[$i],
+                        'hpp' => null,
+                        'subtotal' => $subtotals[$i],
+                        'keterangan' => null,
+                        'qty_sent' => 0,
+                    ]);
+                }
             }
 
             DB::commit();
@@ -587,7 +675,7 @@ class OrdersController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+            return redirect()->back()->withInput()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
 

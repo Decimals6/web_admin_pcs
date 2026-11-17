@@ -9,6 +9,21 @@
         <form action="{{ route('pembelian.purchase-order.update', $order->id) }}" method="POST" id="poForm">
             @csrf
             @method('PUT')
+
+            @if ($errors->any())
+                <div class="alert alert-danger m-3">
+                    @foreach ($errors->all() as $error)
+                        <p class="mb-0">{{ $error }}</p>
+                    @endforeach
+                </div>
+            @endif
+
+            @if (session('error'))
+                <div class="alert alert-danger m-3">
+                    <p class="mb-0">{{ session('error') }}</p>
+                </div>
+            @endif
+
             <div class="card-body">
 
                 <div class="row mb-2">
@@ -80,8 +95,14 @@
                     </thead>
                     <tbody>
                         @foreach($order->details as $detail)
+                            @php
+                                $qtySent = (float) ($detail->qty_sent ?? 0);
+                                $qtyFormatted = fmod((float) $detail->qty, 1) == 0 ? intval($detail->qty) : (float) $detail->qty;
+                                $minQty = $qtySent > 0 ? $qtySent : 0.01;
+                            @endphp
                             <tr>
                                 <td>
+                                    <input type="hidden" name="detail_id[]" class="detail-id" value="{{ $detail->id }}">
                                     <select name="barang_id[]" class="form-control barang-select" required>
                                         <option value="">-- Pilih Barang --</option>
                                         @foreach($barangs as $b)
@@ -91,13 +112,21 @@
                                         @endforeach
                                     </select>
                                 </td>
-                                <td><input type="number" name="qty[]" class="form-control qty" min="0" step="0.01"
-                                        value="{{ $detail->qty }}" required></td>
+                                <td>
+                                    <input type="number" name="qty[]" class="form-control qty" min="{{ $minQty }}" step="0.01"
+                                        value="{{ $qtyFormatted }}" required>
+                                    @if($qtySent > 0)
+                                        <small class="text-info d-block mt-1 qty-sent-info">Diterima: {{ $qtySent }}</small>
+                                    @endif
+                                </td>
                                 <td><input type="number" name="harga[]" class="form-control harga" min="0" step="0.01"
                                         value="{{ $detail->harga }}" required></td>
                                 <td><input type="number" name="subtotal_detail[]" class="form-control subtotal-detail"
                                         value="{{ $detail->subtotal }}" readonly style="background-color:#e9ecef;"></td>
-                                <td><button type="button" class="btn btn-danger btn-sm remove-row">-</button></td>
+                                <td>
+                                    <button type="button" class="btn btn-danger btn-sm remove-row"
+                                        {{ $qtySent > 0 ? 'disabled title="Sudah ada Surat Jalan"' : '' }}>-</button>
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -230,6 +259,9 @@
 
                 // Kosongkan value inputan baru
                 newRow.find('input').val('');
+                newRow.find('.qty').attr('min', '0.01').attr('step', '0.01');
+                newRow.find('.qty-sent-info').remove();
+                newRow.find('.remove-row').removeAttr('disabled').removeAttr('title');
                 newRow.find('select').prop('selectedIndex', 0);
 
                 tbody.append(newRow);

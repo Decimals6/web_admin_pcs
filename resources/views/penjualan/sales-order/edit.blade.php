@@ -18,6 +18,12 @@
                 </div>
             @endif
 
+            @if (session('error'))
+                <div class="alert alert-danger m-3">
+                    <p class="mb-0">{{ session('error') }}</p>
+                </div>
+            @endif
+
             <div class="card-body">
                 <div class="row mb-2">
                     <div class="col-md-3">
@@ -95,6 +101,12 @@
                         @foreach($order->details as $detail)
                             <tr>
                                 <td>
+                                    @php
+                                        $qtySent = (float) ($detail->qty_sent ?? 0);
+                                        $qtyFormatted = fmod((float) $detail->qty, 1) == 0 ? intval($detail->qty) : (float) $detail->qty;
+                                        $minQty = $qtySent > 0 ? $qtySent : 0.01;
+                                    @endphp
+                                    <input type="hidden" name="detail_id[]" class="detail-id" value="{{ $detail->id }}">
                                     <select name="barang_id[]" class="form-control barang-select" required>
                                         <option value="">-- Pilih Barang --</option>
                                         @foreach($barangs as $b)
@@ -106,7 +118,10 @@
                                 </td>
                                 <td>
                                     <input type="number" name="qty[]" class="form-control qty"
-                                        value="{{ intval($detail->qty) }}" min="1" step="1" required>
+                                        value="{{ $qtyFormatted }}" min="{{ $minQty }}" step="0.01" required>
+                                    @if($qtySent > 0)
+                                        <small class="text-info d-block mt-1 qty-sent-info">Terkirim: {{ $qtySent }}</small>
+                                    @endif
                                 </td>
                                 <td>
                                     <div class="input-group">
@@ -120,7 +135,10 @@
                                     <input type="number" name="subtotal_detail[]" class="form-control subtotal-detail"
                                         value="{{ $detail->subtotal }}" readonly style="background-color:#e9ecef;">
                                 </td>
-                                <td><button type="button" class="btn btn-danger btn-sm remove-row">-</button></td>
+                                <td>
+                                    <button type="button" class="btn btn-danger btn-sm remove-row"
+                                        {{ ($detail->qty_sent ?? 0) > 0 ? 'disabled title="Sudah ada Surat Jalan"' : '' }}>-</button>
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -165,7 +183,7 @@
         document.addEventListener('DOMContentLoaded', function () {
 
             function calculateRow(row) {
-                let qty = parseInt(row.querySelector('.qty').value) || 0;
+                let qty = parseFloat(row.querySelector('.qty').value) || 0;
                 let harga = parseFloat(row.querySelector('.harga').value) || 0;
                 let subtotalInput = row.querySelector('.subtotal-detail');
 
@@ -207,7 +225,7 @@
             }
 
             document.getElementById('items-table').addEventListener('change', function (e) {
-                if (e.target.classList.contains('barang-select') || e.target.classList.contains('qty')) {
+                if (e.target.classList.contains('barang-select')) {
                     let row = e.target.closest('tr');
                     fetchHarga(row);
                 }
@@ -231,12 +249,18 @@
                         input.setAttribute('readonly', true);
                         input.style.backgroundColor = "#e9ecef";
                     }
-                    // Pastikan baris baru tetep kekunci step bulat
                     if (input.classList.contains('qty')) {
-                        input.setAttribute('step', '1');
-                        input.setAttribute('min', '1');
+                        input.setAttribute('step', '0.01');
+                        input.setAttribute('min', '0.01');
                     }
                 });
+                let sentInfo = newRow.querySelector('.qty-sent-info');
+                if (sentInfo) sentInfo.remove();
+                let removeBtn = newRow.querySelector('.remove-row');
+                if (removeBtn) {
+                    removeBtn.removeAttribute('disabled');
+                    removeBtn.removeAttribute('title');
+                }
                 newRow.querySelector('select').selectedIndex = 0;
                 tbody.appendChild(newRow);
             });

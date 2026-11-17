@@ -41,7 +41,7 @@
                     <div class="col-md-4">
                         <label>Delivery Note</label>
                         <div class="d-flex">
-                            <div class="flex-grow-1">
+                            <div class="flex-grow-1 overflow-hidden" style="min-width: 0;">
                                 <select id="delivery_note_select" class="form-control">
                                     <option value="">-- Cari No. SJ / Supplier --</option>
                                     @foreach($deliveryNotes as $dn)
@@ -52,7 +52,7 @@
                                 </select>
                             </div>
 
-                            <button type="button" class="btn btn-primary ml-2" id="add_dn">
+                            <button type="button" class="btn btn-primary ml-2 flex-shrink-0 text-nowrap" id="add_dn">
                                 Add
                             </button>
                         </div>
